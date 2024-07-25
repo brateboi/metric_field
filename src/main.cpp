@@ -42,6 +42,8 @@ int main(int argc, char* argv[])
     MetricField field = MetricField(tetmesh);
 
     // normalCase(field);
+    normalTetFinderCase(field);
+    // tetFinderCaseWeird(field);
     // throughVertex(field);
     // throughEdge(field);
     // throughFace(field);
@@ -51,6 +53,7 @@ int main(int argc, char* argv[])
     // endPointOnVertex(field);
     // endPointOnEdge(field);
     // endPointOnFace(field);
+    // tetFinderSameStartEndPoint();
     saveToFile(tetmesh, "testmesh.ovm");
 
     // throughVertex(tetmesh);

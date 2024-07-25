@@ -30,16 +30,21 @@ class MetricField {
 private:
   TM tetmesh;
   std::map<Eigen::VectorXd, std::vector<OVM::CellHandle>, cmpVec3d> hash;
-  OVM::CellHandle prevTetContainingPoint = OVM::TopologyKernel::InvalidCellHandle;
+  OVM::CellHandle prevTetContainingPoint = OVM::CellHandle(0);
+
+  OVM::CellPropertyT<std::vector<OVM::VertexHandle>> cell_vertices;
+
+  int degenerate_counter = 0;
 
   void prepareTransformation();
   void attachMetric();
   void attachCurl();
+  void attach_cell_vertices();
   void calculateCurl(const OVM::CellHandle &ch);
   Vec3d integrate2Point(const OVM::CellHandle &ch, const Vec3d &a, const Vec3d &b);
   Mat3d computeCoeff(const OVM::CellHandle &ch, const Vec3d &q, const Vec3d &p);
   Mat3d recursiveDivide(const OVM::CellHandle &ch, const Vec3d &q,
-                        const Vec3d &p, int depth);
+                        const Vec3d &p);
   
   Mat9d scaledInverse(const Mat3d &A);
 
@@ -52,7 +57,7 @@ private:
 
   OVM::HalfFaceHandle
   find_halfface_in_cell(std::vector<OVM::VertexHandle> &verts,
-                        OVM::CellHandle &ch);
+                        const OVM::CellHandle &ch);
 
   bool validState(const Vec3d &q, const Vec3d &p, OVM::VertexHandle u,
                   OVM::VertexHandle v, OVM::VertexHandle w);
@@ -71,6 +76,11 @@ private:
 
   void initializeFast(const OVM::VertexHandle q, const Vec3d p, OVM::VertexHandle &u, OVM::VertexHandle &v, OVM::VertexHandle &w, OVM::CellHandle &t);
 
+  OVM::CellHandle neighbor(const OVM::VertexHandle &u, const OVM::VertexHandle &v, const OVM::VertexHandle &w, const OVM::CellHandle &t);
+  OVM::VertexHandle vertex_of_t(const OVM::VertexHandle &u, const OVM::VertexHandle &v, const OVM::VertexHandle &w, const OVM::CellHandle &t);
+
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> tetFinderFast(const Vec3d &q, const Vec3d &p, bool &failed);
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> tetFinderRobust(const Vec3d &q, const Vec3d &p);
   
 
   public:
@@ -81,16 +91,25 @@ private:
   Mat3d metricAtPoint(const OVM::CellHandle &ch, const Vec3d &_p);
   Mat3d eval_W(const OVM::CellHandle &ch, const Vec3d &_p);
   Mat3d getCurl(const OVM::CellHandle &ch);
-  std::vector<OVM::CellHandle> locateTetsFast(const OVM::VertexHandle &q, const Vec3d &p);
+  OVM::CellHandle locateTetsFast(const OVM::VertexHandle &q, const Vec3d &p, bool &failed);
   std::vector<OVM::CellHandle> locateTets(const Vec3d &q);
 
   Mat3d computeCoeff(const Vec3d &q, const Vec3d &p, std::vector<OVM::CellHandle> &cells);
 
   Mat3d computeCoeff(const Vec3d &q, const Vec3d &p, OVM::CellHandle &cq, OVM::CellHandle &cp);
 
+  int get_degenerate_counter();
+  
   std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> tetFinder(const Vec3d &q, const Vec3d &p);
 
+  TM& get_tetmesh();
+
 };
+
+extern "C" {
+  MetricField* create_metric_field(const char* mesh);
+  extern "C" void call_hello_world();
+}
 
 // helper finder rotation coefficient
 Mat3d unstack(const Vec9d &_m);

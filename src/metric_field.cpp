@@ -9,10 +9,11 @@
 #include <OpenVolumeMesh/Mesh/PolyhedralMesh.hh>
 
 #include "metric_field.hpp"
+#include "other_fields.hpp"
+
 
 #include <cmath>
 #include <limits>
-#include <other_fields.hpp>
 
 using Quaternion = Eigen::Quaterniond;
 using Vec3d = Eigen::Matrix<double, 3, 1>;
@@ -27,6 +28,29 @@ using TM = OVM::TetrahedralGeometryKernel<OVM::Vec3d,
 
 
 
+// C++ wrapper for extern C call
+extern "C" double* call_compute_coeff(MetricField* _f, const double* _q, const double* _p){
+  Vec3d q = Vec3d(_q);
+  Vec3d p = Vec3d(_p);
+
+  Mat3d rotation = _f->computeCoeff(q, p);
+  // convert rotation to Euler XYZ
+  Vec3d ea = rotation.eulerAngles(0, 1, 2);
+
+  return ea.data();
+
+}
+
+extern "C" MetricField* create_metric_field(const char* mesh){
+  return new MetricField(mesh);
+} 
+
+extern "C" void call_hello_world(){
+  std::cout << "HELLO WORLD, C++ call from C worked!" << std::endl;
+  return;
+} 
+
+
 // exact predicates
 extern "C" double orient3d(const double *, const double *, const double *,
                            const double *);
@@ -39,17 +63,63 @@ void MetricField::readInTetmesh(const std::string &filename)
   fm.readFile(filename, tetmesh, true, true);
 }
 
+TM& MetricField::get_tetmesh(){
+  return tetmesh;
+}
+
+int MetricField::get_degenerate_counter(){
+  return degenerate_counter;
+}
 
 // computes the rotation between two points in the metric field, main function
 Mat3d MetricField::computeCoeff(const Vec3d &q, const Vec3d &p)
 {
+  // return Mat3d::Identity(); // no work
 
   std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinder(q, p);
+
   Mat3d coeff = Mat3d::Identity();
   for (const auto &segment : lineSegments)
   {
     coeff = computeCoeff(std::get<0>(segment), std::get<1>(segment), std::get<2>(segment)) * coeff;
   }
+
+  return coeff;
+}
+
+std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> MetricField::tetFinder(const Vec3d &q, const Vec3d &p){
+  bool failed = false;
+
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinderFast(q, p, failed);
+  // std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinderRobust(q, p);
+
+  // check if run was degenerate, use robust, but slow tet finder
+  if (failed){
+    degenerate_counter++;
+    lineSegments = tetFinderRobust(q, p);
+  }
+  return lineSegments;
+}
+
+// computes the rotation between two points in the metric field, main function, pushes traversed cells to vector
+Mat3d MetricField::computeCoeff(const Vec3d &q, const Vec3d &p, std::vector<OVM::CellHandle> &cells)
+{
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinder(q, p);
+  
+  Mat3d coeff = Mat3d::Identity();
+  for (const auto &segment : lineSegments)
+  {
+    // for visualizing
+    // std::cout << "Cell handle " << std::get<0>(segment) << std::endl;
+    cells.push_back(std::get<0>(segment));
+
+    coeff = computeCoeff(std::get<0>(segment), std::get<1>(segment), std::get<2>(segment)) * coeff;
+  }
+
+  // for visualizing---------
+  // markTetsAsIntersected(this->tetmesh, cells);
+  // showIntersectionPoints(this->tetmesh, lineSegments);
+  // ------------------------
 
   return coeff;
 }
@@ -78,32 +148,6 @@ Mat3d MetricField::computeCoeff(const Vec3d &q, const Vec3d &p, OVM::CellHandle 
 }
 
 
-// computes the rotation between two points in the metric field, main function, pushes traversed cells to vector
-Mat3d MetricField::computeCoeff(const Vec3d &q, const Vec3d &p, std::vector<OVM::CellHandle> &cells)
-{
-
-
-  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinder(q, p);
-  Mat3d coeff = Mat3d::Identity();
-  for (const auto &segment : lineSegments)
-  {
-    // for visualizing
-    // std::cout << "Cell handle " << std::get<0>(segment) << std::endl;
-    cells.push_back(std::get<0>(segment));
-
-
-    coeff = computeCoeff(std::get<0>(segment), std::get<1>(segment), std::get<2>(segment)) * coeff;
-  }
-
-
-  // for visualizing---------
-  // markTetsAsIntersected(this->tetmesh, cells);
-  // showIntersectionPoints(this->tetmesh, lineSegments);
-  // ------------------------
-
-  return coeff;
-}
-
 MetricField::MetricField()
 {
   exactinit();
@@ -111,10 +155,14 @@ MetricField::MetricField()
   // std::string filename = "s01u_cube_aligned.vtk";
   // std::string filename = "s01u_cube_aligned.ovm";
   // std::string filename = "myMesh1.ovm";
-  std::string filename = "../myMesh1.ovm";
+  // std::string filename = "../myMesh1.ovm";
+  std::string filename = "/Users/FloriGod/Development/cube_field/meshes/0_1_cube.ovm";
+  // std::string filename = "../meshes/0_1_cube.ovm";
   // std::string filename = "bridge.ovm";
   // std::string filename = "s01c_cube.vtk";
   readInTetmesh(filename);
+  attach_cell_vertices();
+
   prepareTransformation();
   attachMetric();
   attachCurl();
@@ -130,6 +178,8 @@ MetricField::MetricField(std::string filename)
   // std::string filename = "myMesh1.ovm";
   // std::string filename = "s01c_cube.vtk";
   readInTetmesh(filename);
+  attach_cell_vertices();
+
   prepareTransformation();
   attachMetric();
   attachCurl();
@@ -138,10 +188,20 @@ MetricField::MetricField(std::string filename)
 MetricField::MetricField(TM &tetmesh_) {
   exactinit();
   tetmesh = tetmesh_;
+  attach_cell_vertices();
 
   prepareTransformation();
   attachMetric();
   attachCurl();
+}
+
+void MetricField::attach_cell_vertices(){
+  cell_vertices = tetmesh.request_cell_property<std::vector<OVM::VertexHandle>>();
+
+  for (auto cell : tetmesh.cells()){
+    cell_vertices[cell] = tetmesh.get_cell_vertices(cell);
+  }
+  return;
 }
 
 
@@ -152,7 +212,8 @@ void MetricField::prepareTransformation()
   OVM::CellPropertyT<Mat4d> T = tetmesh.create_persistent_cell_property<Mat4d>("T").value();
   for (const auto &ch : tetmesh.cells())
   {
-    const auto verts = tetmesh.get_cell_vertices(ch);
+    // const auto verts = tetmesh.get_cell_vertices(ch);
+    const auto verts = cell_vertices[ch];
     Mat4d T_inverse;
 
     T_inverse.block<3, 1>(0, 0) = Vec3d(tetmesh.vertex(verts[0]).data());
@@ -174,7 +235,6 @@ void MetricField::prepareTransformation()
 // attaches linearly varying metric in the z-axis
 void MetricField::attachMetric()
 {
-
   Mat3d identity = Mat3d::Identity();
   OVM::VertexPropertyT<Mat3d> metric = tetmesh.create_persistent_vertex_property<Mat3d>("metric").value();
   for (OVM::VertexIter v_it = tetmesh.vertices_begin(); v_it != tetmesh.vertices_end(); ++v_it)
@@ -264,7 +324,8 @@ void MetricField::calculateCurl(const OVM::CellHandle &ch)
 {
   // curl is constant over the tet
   OVM::VertexPropertyT<Mat3d> metric = tetmesh.request_vertex_property<Mat3d>("metric");
-  const auto verts = tetmesh.get_cell_vertices(ch);
+  // const auto verts = tetmesh.get_cell_vertices(ch);
+  const auto verts = cell_vertices[ch];
   OVM::CellPropertyT<Mat3d> curl = tetmesh.request_cell_property<Mat3d>("curl");
   Mat4d T = tetmesh.request_cell_property<Mat4d>("T")[ch];
   for (int i = 0; i < 3; i++)
@@ -313,7 +374,8 @@ Mat3d MetricField::metricAtPoint(const OVM::CellHandle &ch, const Vec3d &_p)
   Vec4d p;
   p << _p(0), _p(1), _p(2), 1;
   Vec4d lambda = T * p;
-  const auto verts = tetmesh.get_cell_vertices(ch);
+  // const auto verts = tetmesh.get_cell_vertices(ch);
+  const auto verts = cell_vertices[ch];
   Mat3d res =
       lambda.coeff(0) * metric[verts[0]] + lambda.coeff(1) * metric[verts[1]] +
       lambda.coeff(2) * metric[verts[2]] + lambda.coeff(3) * metric[verts[3]];
@@ -322,13 +384,14 @@ Mat3d MetricField::metricAtPoint(const OVM::CellHandle &ch, const Vec3d &_p)
 }
 
 // frobenius norm
-Mat3d MetricField::recursiveDivide(const OVM::CellHandle &ch, const Vec3d &a, const Vec3d &b, int depth)
+Mat3d MetricField::recursiveDivide(const OVM::CellHandle &ch, const Vec3d &a, const Vec3d &b)
 {
   
 
   Mat3d r1 = lie_exp(integrate2Point(ch, a, b));
   Vec3d midpoint = (a + b) / 2.0;
   double length = (a - b).squaredNorm();
+  std::cout << "length " << length << std::endl;
   if (((r1 - lie_exp(integrate2Point(ch, a, midpoint)) * lie_exp(integrate2Point(ch, midpoint, b))).squaredNorm()) /
           length <
       10e-6)
@@ -337,8 +400,8 @@ Mat3d MetricField::recursiveDivide(const OVM::CellHandle &ch, const Vec3d &a, co
   }
   else
   {
-    return recursiveDivide(ch, a, midpoint, ++depth) *
-           recursiveDivide(ch, midpoint, b, ++depth);
+    return recursiveDivide(ch, a, midpoint) *
+           recursiveDivide(ch, midpoint, b);
   }
 }
 
@@ -358,6 +421,13 @@ Mat3d lie_exp(Vec3d u)
   return result;
 }
 
+
+/**
+ * The precomputed inverse of A, to solve the linear system
+ * 
+ * @param Mat9d A
+ * @returns Mat9d A^{-1}
+*/
 Mat9d MetricField::scaledInverse(const Mat3d &A)
 {
   double factor = A.determinant() * -2.;
@@ -397,6 +467,10 @@ Mat3d MetricField::eval_W(const OVM::CellHandle &ch, const Vec3d &_p)
   // return unstack(A_x(metricAtPoint(ch, _p)).fullPivLu().solve(stack(curl[ch])));
 }
 
+
+/**
+ * @returns curl of certain tet
+*/
 Mat3d MetricField::getCurl(const OVM::CellHandle &ch){
   
   OVM::CellPropertyT<Mat3d> curl = tetmesh.request_cell_property<Mat3d>("curl");
@@ -418,10 +492,18 @@ Vec3d MetricField::integrate2Point(const OVM::CellHandle &ch, const Vec3d &a, co
   return res;
 }
 
+
+/**
+ * computes the rotation coefficient between points p and q where p/q lie in the same cell
+ * 
+ * @param Vec3d q
+ * @param Vec3d p
+ * @returns Mat3d rotation
+*/
 Mat3d MetricField::computeCoeff(const OVM::CellHandle &ch, const Vec3d &q, const Vec3d &p)
 {
-  // return lie_exp(integrate2Point(ch, q, p)); // go only to boundary of cell
-  return recursiveDivide(ch, q, p, 0);
+  return lie_exp(integrate2Point(ch, q, p)); // go only to boundary of cell
+  //return recursiveDivide(ch, q, p); // do normal recursive division
 }
 
 /**
@@ -492,109 +574,71 @@ Mat3d unstack(const Vec9d &_m)
 /**
  * @brief walks through the mesh starting from q going to p
  * marks a path of tets and their intersection points with the ray inbetween
- * them
+ * them, might fail if walk is degenerate
  *
  * @param q
  * @param p
+ * @param failed bool, is set to true if during walk an orientation test is exactly 0
  * @return std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>>
  */
 std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>>
-MetricField::tetFinder(const Vec3d &q, const Vec3d &p)
+MetricField::tetFinderFast(const Vec3d &q, const Vec3d &p, bool &failed )
 {
-  // we work with OVM::Vec3d here, copy them
-  // const OVM::Vec3d q = OVM::Vec3d(_q.data());
-  // const OVM::Vec3d p = OVM::Vec3d(_p.data());
 
-  auto starts = locateTets(q);
-  OVM::CellHandle t;
   OVM::VertexHandle u, v, w, s;
   OVM::HalfFaceHandle triangle;
   std::vector<OVM::VertexHandle> verts;
   std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> ints;
-  bool success = false;
-  for (OVM::CellHandle _t : starts)
-  {
-    // if p is in same tet as q, then we are done here
-    if (pointInTet(_t, p))
-    {
-      ints.push_back(std::make_tuple(_t, q, p));
-      return ints;
-    }
-    if (success = initialization(_t, q, p, u, v, w))
-    {
-      t = _t;
-      break;
-    };
+
+  // locate tet where q is located, and the ray qp points into it
+
+  OVM::VertexHandle startVertex = *tetmesh.cv_iter(prevTetContainingPoint);
+  OVM::CellHandle t = locateTetsFast(startVertex, q, failed);
+  if (failed){
+    return ints;
   }
 
-  // where p is actually located, to know if we are finished
-  std::vector<OVM::CellHandle> t_others = locateTets(p);
+  // if p is in same tet as q, then we are done here
+  if (pointInTet(t, p))
+  {
+    ints.push_back(std::make_tuple(t, q, p));
+    return ints;
+  }
+
+  bool success = initialization(t, q, p, u, v, w);
+  assert(success);
 
   // start walk
   Vec3d prev = q;
-  if (!success)
-  {
-    std::cout << "failed to initialize correctly" << std::endl;
-    std::cout << "q" << q.transpose() << std::endl;
-    std::cout << "p" << p.transpose() << std::endl;
-    for (const auto _t : starts)
-    {
-      std::cout << "\t tried tet " << _t << std::endl;
-      const auto temp = tetmesh.get_cell_vertices(_t);
-      for (const auto &vh : temp)
-      {
-        std::cout << "\t \t vertices " << tetmesh.vertex(vh) << std::endl;
-      }
-    }
-  }
   Vec3d curr = intersection(q, p, u, v, w);
   ints.push_back(std::make_tuple(t, prev, curr));
 
   // qp intersects triangle uvw
   // wvqp, vuqp, uwqp are positively oriented
-  while (orient3dHelper(u, w, v, p) > 0 || !contains(t_others, t))
+  while (orient3dHelper(u, w, v, p) > 0 )
   {
-    // degenerate cases can lead to invalid states, need reinit
-    if (/*orient3dHelper(u, w, v, p) < 0 ||*/ !validState(q, p, u, v, w))
-    {
-      // std::cout << "p " << p.transpose() << std::endl; 
-      // std::cout << "q " << q.transpose() << std::endl;
-      std::cout << "reinitialization" << std::endl;
-      
-      // after a reinitialization, the next triangle traversed must not
-      // necessarily be a triangle that gets intersected
-      initialization(t, q, p, u, v, w);
-    }
-    // std::cout << "validstate before reassignment: -----------" << validState(q,p,u,v,w) << std::endl;
-    // std::cout << "u " << tetmesh.vertex(u) << std::endl; 
-    // std::cout << "v " << tetmesh.vertex(v) << std::endl; 
-    // std::cout << "w " << tetmesh.vertex(w) << std::endl; 
-
-    verts.clear();
-    verts.push_back(u);
-    verts.push_back(v);
-    verts.push_back(w);
-    triangle = find_halfface_in_cell(verts, t);
-
-    // jump to neighbor
-    triangle = tetmesh.opposite_halfface_handle(triangle);
-    t = tetmesh.incident_cell(triangle);
-
+    // jump to neighbor of t through uvw
+    t = neighbor(u,v,w,t);
 
     // reassign s
-    const auto candidates = tetmesh.get_cell_vertices(t);
-    for (const OVM::VertexHandle &vh : candidates)
-    {
-      if (vh != u && vh != v && vh != w)
-      {
-        s = vh;
-        break;
-      }
-    }
+    s = vertex_of_t(u,v,w,t);
+    
     prev = curr;
-    if (orient3dHelper(u, s, q, p) > 0)
+
+    double usqp = orient3dHelper(u, s, q, p);
+    double vsqp = orient3dHelper(v, s, q, p);
+    double wsqp = orient3dHelper(w, s, q, p);
+    double uvwq = orient3dHelper(u, v, w, q);
+    if (usqp == 0.0 || vsqp == 0.0 || wsqp == 0.0 || uvwq == 0.0) { // degenerate case detected
+      // std::cout << "degenerate case detected, this run is invalid" << std::endl;
+      failed = true;
+      return ints;
+    }
+
+
+    if (usqp > 0)
     { // qp does not intersect triangle usw
-      if (orient3dHelper(v, s, q, p) > 0)
+      if (vsqp > 0)
       { // qp intersects triangle vsw
         u = s;
       }
@@ -604,8 +648,8 @@ MetricField::tetFinder(const Vec3d &q, const Vec3d &p)
       }
     }
     else
-    { // qp doesnt not intersect triangle usv
-      if (orient3dHelper(w, s, q, p) > 0)
+    { // qp does not intersect triangle usv
+      if (wsqp > 0)
       { // qp intersects triangle usw
         v = s;
       }
@@ -615,22 +659,58 @@ MetricField::tetFinder(const Vec3d &q, const Vec3d &p)
       }
     }
 
-    // if we have to make reinitialization, triangle traversed isn't necessarily
-    // a triangle that gets intersected check before each intersection
-    if (robustRayTriangle(q, p, tetmesh.vertex(u), tetmesh.vertex(v),
-                          tetmesh.vertex(w)))
-    {
-      curr = intersection(q, p, u, v, w);
-
-      ints.push_back(std::make_tuple(t, prev, curr));
-    }
+    curr = intersection(q, p, u, v, w);
+    ints.push_back(std::make_tuple(t, prev, curr));
 
   } // t contains p
+
   // add last element because loop terminated
   ints.push_back(std::make_tuple(t, prev, p));
   return ints;
 }
 
+/**
+ * jumps through face uvw to neighbor, reassigns t 
+*/
+OVM::CellHandle MetricField::neighbor(const OVM::VertexHandle &u, const OVM::VertexHandle &v, const OVM::VertexHandle &w, const OVM::CellHandle &t){
+  std::vector<OVM::VertexHandle> verts(3);
+  verts.clear();
+  verts.push_back(u);
+  verts.push_back(v);
+  verts.push_back(w);
+  auto triangle = find_halfface_in_cell(verts, t);
+
+  // jump to neighbor
+  triangle = tetmesh.opposite_halfface_handle(triangle);
+
+  return tetmesh.incident_cell(triangle);
+}
+
+/**
+ * vertex of t, s!=u, s!=v, s!=w
+*/
+OVM::VertexHandle MetricField::vertex_of_t(const OVM::VertexHandle &u, const OVM::VertexHandle &v, const OVM::VertexHandle &w, const OVM::CellHandle &t){
+  // std::cout << 't ' << t << std::endl;
+  // const auto candidates = tetmesh.get_cell_vertices(t);
+  const auto candidates = cell_vertices[t];
+  
+  for (const OVM::VertexHandle &vh : candidates)
+  {
+    if (vh != u && vh != v && vh != w)
+    {
+      return vh;
+    }
+  }
+
+  std::cerr << " couldnt do vertex s reassignment" << std::endl;
+  assert(false);
+  return OVM::VertexHandle(-1);
+}
+
+
+/**
+ * finds the nearest neighbor with linear search through the whole mesh
+*/
 OVM::VertexHandle MetricField::linearNN(const Vec3d &_q)
 {
   OVM::Vec3d q = toOVMVec3d(_q);
@@ -825,7 +905,7 @@ bool robustRayTriangle(const Vec3d &q, const Vec3d &p, const OVM::Vec3d &v1,
 // finds the halfface with the 3 vertices in a given cell
 OVM::HalfFaceHandle
 MetricField::find_halfface_in_cell(std::vector<OVM::VertexHandle> &verts,
-                                   OVM::CellHandle &ch)
+                                   const OVM::CellHandle &ch)
 {
   // compares every halfface to the list of vertices
   for (const OVM::HalfFaceHandle &hfh : tetmesh.cell_halffaces(ch))
@@ -871,27 +951,32 @@ Vec3d MetricField::intersection(const Vec3d &_q, const Vec3d &_p,
   s = rayOrigin - v0;
   u = f * s.dot(h);
 
-  if (u < 0.0 || u > 1.0)
-  {
-    std::cout << "Did not intersect with this" << std::endl;
-    std::cout << "\t u " << tetmesh.vertex(_u) << std::endl;
-    std::cout << "\t v " << tetmesh.vertex(_v) << std::endl;
-    std::cout << "\t w " << tetmesh.vertex(_w) << std::endl;
-    std::cout << "1st, no intersection, this should not have been the case"
-              << std::endl;
-    return Vec3d(0.0, 0.0, 0.0);
-  }
+  /*{ // do not trust floating point calculations for logical decisions, we already know it intersects through robust check
+    if (u < 0.0 || u > 1.0)
+    {
+      std::cout << "Did not intersect with this" << std::endl;
+      std::cout << "\t u " << tetmesh.vertex(_u) << std::endl;
+      std::cout << "\t v " << tetmesh.vertex(_v) << std::endl;
+      std::cout << "\t w " << tetmesh.vertex(_w) << std::endl;
+      std::cout << "1st, no intersection, this should not have been the case"
+                << std::endl;
+      return Vec3d(-10.0, -10.0, -10.0);
+    }
+  }*/
 
   q = s.cross(edge1);
   v = f * rayVector.dot(q);
 
-  if (v < 0.0 || u + v > 1.0)
-  {
-    std::cout << "v " << v << " u " << u << std::endl;
-    std::cout << "2nd, no intersection, this should not have been the case"
-              << std::endl;
-    return Vec3d(0.0, 0.0, 0.0);
-  }
+  /*{ // do not trust floating point calculations for logical decisions, we already know it intersects through robust check
+    if (v < 0.0 || u + v > 1.0)
+    {
+      std::cout << "v " << v << " u " << u << std::endl;
+      std::cout << "2nd, no intersection, this should not have been the case"
+                << std::endl;
+      return Vec3d(-10.0, -10.0, -10.0);
+    }
+  }*/
+  
 
   // Compute t to find out where intersection point is
   double t = f * edge2.dot(q);
@@ -912,7 +997,8 @@ bool sameSign(double a, double b)
 // does not handle the case where q is exactly on a vertex
 bool MetricField::pointInTet(const OVM::CellHandle &ch, const Vec3d &q)
 {
-  std::vector<OVM::VertexHandle> vertices = tetmesh.get_cell_vertices(ch);
+  // std::vector<OVM::VertexHandle> vertices = tetmesh.get_cell_vertices(ch);
+  std::vector<OVM::VertexHandle> vertices = cell_vertices[ch];
   const double *v1 = tetmesh.vertex(vertices[0]).data();
   const double *v2 = tetmesh.vertex(vertices[1]).data();
   const double *v3 = tetmesh.vertex(vertices[2]).data();
@@ -1004,9 +1090,18 @@ void showIntersectionPoints(TM &tetmesh, std::vector<std::tuple<OVM::CellHandle,
 /**
  * find tets containting p but with walking strategy from given vertex
 */
-std::vector<OVM::CellHandle> MetricField::locateTetsFast(const OVM::VertexHandle &q, const Vec3d &p)
+OVM::CellHandle MetricField::locateTetsFast(const OVM::VertexHandle &q, const Vec3d &p, bool &failed)
 {
-  std::cout << "start vertex q " << tetmesh.vertex(q) << std::endl;
+  // check if prev tet contained point as good guess.
+  // check if previous cell contains point as good guess
+  if (prevTetContainingPoint != OVM::TopologyKernel::InvalidCellHandle) {
+    if (pointInTet(prevTetContainingPoint, p)) {
+      // std::cout << " found in prev tet " << std::endl;
+      return prevTetContainingPoint;
+    }
+  }
+
+  // std::cout << "start vertex q " << tetmesh.vertex(q) << std::endl;
 
   OVM::CellHandle t;
   OVM::VertexHandle u, v, w, s;
@@ -1124,21 +1219,14 @@ std::vector<OVM::CellHandle> MetricField::locateTetsFast(const OVM::VertexHandle
   */
 
   initializeFast(q,p,u,v,w, t);
-  {// debug 
-    TM DEBUG_MESH;
-    std::vector<OVM::VertexHandle> faceseseses;
-    faceseseses.push_back(DEBUG_MESH.add_vertex(tetmesh.vertex(u)));
-    faceseseses.push_back(DEBUG_MESH.add_vertex(tetmesh.vertex(v)));
-    faceseseses.push_back(DEBUG_MESH.add_vertex(tetmesh.vertex(w)));
-    DEBUG_MESH.add_face(faceseseses);
-    saveToFile(DEBUG_MESH, "DEBUG_TRIANGLE.ovm");
-  }
 
+  double uwvp = orient3dHelper(u, w, v, p);
 
   // qp intersects triangle u,v,w
   // wvqp, vuqp, u,w,q,p are positively oriented
-  while (orient3dHelper(u, w, v, p) > 0)
+  while (uwvp > 0)
   {
+    
     verts.clear();
     verts.push_back(u);
     verts.push_back(v);
@@ -1146,19 +1234,191 @@ std::vector<OVM::CellHandle> MetricField::locateTetsFast(const OVM::VertexHandle
     triangle = find_halfface_in_cell(verts, t);
 
     // jump to neighbor
-    triangle = tetmesh.opposite_halfface_handle(triangle);
-    t = tetmesh.incident_cell(triangle);
+    t = neighbor(u,v,w, t);
 
     // reassign s
-    const auto candidates = tetmesh.get_cell_vertices(t);
-    for (const OVM::VertexHandle &vh : candidates)
-    {
-      if (vh != u && vh != v && vh != w)
-      {
-        s = vh;
-        break;
+    s = vertex_of_t(u,v,w, t);
+
+    double usqp = orient3dHelper(u, s, q, p);
+    double vsqp = orient3dHelper(v, s, q, p);
+    double wsqp = orient3dHelper(w, s, q, p);
+    if (usqp == 0.0 || vsqp == 0.0 || wsqp == 0.0) { // degenerate case detected
+      // std::cout << "degenerate case during starting tet detected, this run is invalid" << std::endl;
+      failed = true;
+      return OVM::CellHandle(-1);
+    }
+
+    if (usqp > 0)
+    { // qp does not intersect triangle usw
+      if (vsqp > 0)
+      { // qp intersects triangle vsw
+        u = s;
+      }
+      else
+      { // qp intersects triangle usv
+        w = s;
       }
     }
+    else
+    { // qp doesnt not intersect triangle usv
+      if (wsqp > 0)
+      { // qp intersects triangle usw
+        v = s;
+      }
+      else
+      { // qp intersects triangle vsw
+        u = s;
+      }
+    }
+
+  uwvp = orient3dHelper(u, w, v, p);
+  } // t contains p
+
+  if (uwvp == 0.0){
+    failed = true;
+    // std::cout << "degenerate case during starting tet detected, this run is invalid" << std::endl;
+    return OVM::CellHandle(-1);
+  }
+
+  prevTetContainingPoint = t;
+  return t;
+
+} 
+
+
+/**
+ * takes in Vertex q, assigns u,v,w and CellHandle t
+ * such that it is a valid configuration
+*/
+void MetricField::initializeFast(const OVM::VertexHandle q, const Vec3d p, OVM::VertexHandle &u, OVM::VertexHandle &v, OVM::VertexHandle &w, OVM::CellHandle &t){
+  for (auto vc_it = tetmesh.vc_iter(q); vc_it.is_valid(); ++vc_it){ 
+    auto ch = *vc_it;
+
+    auto verts = tetmesh.get_cell_vertices(ch, q);
+    // auto verts = cell_vertices[ch];
+    // // shift so q is at position 0
+    // while (verts[0] != q){
+    //   std::rotate(verts.begin(), verts.end()-1, verts.end());
+    // }
+
+    u = verts[1];
+    v = verts[2];
+    w = verts[3];
+
+    // check if ray qp points into cell
+    bool pointsIn = orient3dHelper(v, u, q, p) <= 0.0 &&
+    orient3dHelper(u, w, q, p) <= 0.0 &&
+    orient3dHelper(w, v, q, p) <= 0.0;
+
+    // qp intersects triangle u,v,w
+    // wvqp, vuqp, u,w,q,p are positively oriented
+    if (pointsIn){
+      t = ch;
+      std::swap(u,w); // paper uses different convention 
+      return;
+    }
+  }
+  assert(false);
+  std::cout << "q: " << tetmesh.vertex(q) << std::endl;
+  std::cout << "p: " << p.transpose() << std::endl;
+
+  std::cerr << " no valid configuration found, wtf ?, are the cells in the mesh positively oriented?" << std::endl;
+  return;
+}
+
+
+/**
+ * @brief walks through the mesh starting from q going to p
+ * marks a path of tets and their intersection points with the ray inbetween
+ * them
+ *
+ * @param q
+ * @param p
+ * @return std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>>
+ */
+std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>>
+MetricField::tetFinderRobust(const Vec3d &q, const Vec3d &p)
+{
+
+  auto starts = locateTets(q);
+  OVM::CellHandle t;
+  OVM::VertexHandle u, v, w, s;
+  OVM::HalfFaceHandle triangle;
+  std::vector<OVM::VertexHandle> verts;
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> ints;
+  bool success = false;
+  for (OVM::CellHandle _t : starts)
+  {
+    // if p is in same tet as q, then we are done here
+    if (pointInTet(_t, p))
+    {
+      ints.push_back(std::make_tuple(_t, q, p));
+      return ints;
+    }
+    if (success = initialization(_t, q, p, u, v, w))
+    {
+      t = _t;
+      break;
+    };
+  }
+
+  // where p is actually located, to know if we are finished
+  std::vector<OVM::CellHandle> t_others = locateTets(p);
+
+  // start walk
+  Vec3d prev = q;
+  if (!success)
+  {
+    std::cout << "failed to initialize correctly" << std::endl;
+    std::cout << "q" << q.transpose() << std::endl;
+    std::cout << "p" << p.transpose() << std::endl;
+    for (const auto _t : starts)
+    {
+      std::cout << "\t tried tet " << _t << std::endl;
+      // const auto temp = tetmesh.get_cell_vertices(_t);
+      const auto temp = cell_vertices[_t];
+      for (const auto &vh : temp)
+      {
+        std::cout << "\t \t vertices " << tetmesh.vertex(vh) << std::endl;
+      }
+    }
+  }
+  Vec3d curr = intersection(q, p, u, v, w);
+  ints.push_back(std::make_tuple(t, prev, curr));
+
+  // qp intersects triangle uvw
+  // wvqp, vuqp, uwqp are positively oriented
+  while (orient3dHelper(u, w, v, p) > 0 || !contains(t_others, t))
+  {
+    // degenerate cases can lead to invalid states, need reinit
+    if (/*orient3dHelper(u, w, v, p) < 0 ||*/ !validState(q, p, u, v, w))
+    {
+      // std::cout << "p " << p.transpose() << std::endl; 
+      // std::cout << "q " << q.transpose() << std::endl;
+      //std::cout << "reinitialization" << std::endl;
+      
+      // after a reinitialization, the next triangle traversed must not
+      // necessarily be a triangle that gets intersected
+      initialization(t, q, p, u, v, w);
+    }
+    // std::cout << "validstate before reassignment: -----------" << validState(q,p,u,v,w) << std::endl;
+    // std::cout << "u " << tetmesh.vertex(u) << std::endl; 
+    // std::cout << "v " << tetmesh.vertex(v) << std::endl; 
+    // std::cout << "w " << tetmesh.vertex(w) << std::endl; 
+
+    verts.clear();
+    verts.push_back(u);
+    verts.push_back(v);
+    verts.push_back(w);
+    triangle = find_halfface_in_cell(verts, t);
+
+    // jump to neighbor
+    t = neighbor(u, v, w, t);
+
+    // reassign s
+    s = vertex_of_t(u, v, w, t);
+  
+    prev = curr;
     if (orient3dHelper(u, s, q, p) > 0)
     { // qp does not intersect triangle usw
       if (orient3dHelper(v, s, q, p) > 0)
@@ -1182,50 +1442,18 @@ std::vector<OVM::CellHandle> MetricField::locateTetsFast(const OVM::VertexHandle
       }
     }
 
-  } // t contains p
-  std::vector<OVM::CellHandle> tets;
-  tets.push_back(t);
+    // if we have to make reinitialization, triangle traversed isn't necessarily
+    // a triangle that gets intersected check before each intersection
+    if (robustRayTriangle(q, p, tetmesh.vertex(u), tetmesh.vertex(v),
+                          tetmesh.vertex(w)))
+    {
+      curr = intersection(q, p, u, v, w);
 
-  std::cout << "point is contained in " << t << std::endl;
-
-  OVM::CellPropertyT<bool> T = tetmesh.create_persistent_cell_property<bool>("contained").value();
-  T[t] = true;
-  saveToFile(tetmesh, "contained.ovm");
-  return tets;
-
-} 
-
-
-/**
- * takes in Vertex q, assigns u,v,w and CellHandle t
- * such that it is a valid configuration
-*/
-void MetricField::initializeFast(const OVM::VertexHandle q, const Vec3d p, OVM::VertexHandle &u, OVM::VertexHandle &v, OVM::VertexHandle &w, OVM::CellHandle &t){
-  for (auto vc_it = tetmesh.vc_iter(q); vc_it.is_valid(); ++vc_it){ 
-    auto ch = *vc_it;
-
-    auto verts = tetmesh.get_cell_vertices(ch, q);
-    u = verts[1];
-    v = verts[2];
-    w = verts[3];
-
-    // check if ray qp points into cell
-    bool pointsIn = orient3dHelper(v, u, q, p) <= 0.0 &&
-    orient3dHelper(u, w, q, p) <= 0.0 &&
-    orient3dHelper(w, v, q, p) <= 0.0;
-
-    // qp intersects triangle u,v,w
-    // wvqp, vuqp, u,w,q,p are positively oriented
-    if (pointsIn){
-      t = ch;
-      std::swap(u,w); // paper uses different convention 
-      return;
+      ints.push_back(std::make_tuple(t, prev, curr));
     }
-  }
-  assert(false);
 
-  std::cerr << " no valid configuration found, wtf ?" << std::endl;
-  return;
+  } // t contains p
+  // add last element because loop terminated
+  ints.push_back(std::make_tuple(t, prev, p));
+  return ints;
 }
-
-

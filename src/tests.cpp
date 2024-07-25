@@ -145,7 +145,8 @@ void normalCase(MetricField &field)
 {
     OVM::Vec3d p = OVM::Vec3d(0.25, 0.87, 1.22);
     std::cout << "----------------- START Normal Case ------------------" << std::endl;
-    auto tets = field.locateTetsFast(OVM::VertexHandle(6), toVec3d(p));
+    bool failed = false;
+    auto tets = field.locateTetsFast(OVM::VertexHandle(6), toVec3d(p), failed);
 
 
     auto tetsActual = field.locateTets(toVec3d(p));
@@ -156,12 +157,23 @@ void normalCase(MetricField &field)
     std::cout << "------------------ END Normal Case -------------------" << std::endl;
 }
 
+void normalTetFinderCase(MetricField &field)
+{
+    OVM::Vec3d p = OVM::Vec3d(0.25, 0.87, 1.22);
+    OVM::Vec3d q = OVM::Vec3d(-0.225, -0.425, 1.25);
+    std::cout << "----------------- START normalTetFinderCase Case ------------------" << std::endl;
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
+    std::cout << "------------------ END normalTetFinderCase Case -------------------" << std::endl;
+}
+
 void throughVertex(MetricField &field)
 {
     OVM::Vec3d q = OVM::Vec3d(0.25, 0.25, 0.25);
     OVM::Vec3d p = OVM::Vec3d(-0.25, -0.25, -0.25);
     std::cout << "-----------------START Through Vertex ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END Through Vertex ------------------" << std::endl;
 }
 
@@ -170,7 +182,8 @@ void throughEdge(MetricField &field)
     OVM::Vec3d q = OVM::Vec3d(1.5, -0.5, 0.0);
     OVM::Vec3d p = OVM::Vec3d(-0.5, 1.5, 0.0);
     std::cout << "-----------------START Through Edge ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END Through Edge ------------------" << std::endl;
 }
 
@@ -179,7 +192,8 @@ void throughFace(MetricField &field)
     OVM::Vec3d q = OVM::Vec3d(1.0, 1.0, 0.0);
     OVM::Vec3d p = OVM::Vec3d(0.75, -0.75, 0.0);
     std::cout << "-----------------START Through Face ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END Through Face ------------------" << std::endl;
 }
 
@@ -188,7 +202,8 @@ void startPointOnVertex(MetricField &field)
     OVM::Vec3d q = OVM::Vec3d(1.0, 0.0, 0.0);
     OVM::Vec3d p = OVM::Vec3d(0.25, 0.87, 1.22);
     std::cout << "-----------------START Start on Vertex ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END Start on Vertex ------------------" << std::endl;
 }
 
@@ -197,7 +212,8 @@ void startPointOnEdge(MetricField &field)
     OVM::Vec3d q = OVM::Vec3d(0.5, 0.5, 0.0);
     OVM::Vec3d p = OVM::Vec3d(0.25, 0.87, 1.22);
     std::cout << "-----------------START Start on Edge ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END Start on Edge ------------------" << std::endl;
 }
 
@@ -206,7 +222,8 @@ void startPointOnFace(MetricField &field)
     OVM::Vec3d q = OVM::Vec3d(0.25, 0.25, 0.0);
     OVM::Vec3d p = OVM::Vec3d(0.25, 0.87, 1.22);
     std::cout << "-----------------START Start on Face ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END Start on Face ------------------" << std::endl;
 }
 
@@ -215,7 +232,8 @@ void endPointOnVertex(MetricField &field)
     OVM::Vec3d p = OVM::Vec3d(1.0, 0.0, 0.0);
     OVM::Vec3d q = OVM::Vec3d(0.25, 0.87, 1.22);
     std::cout << "-----------------START End on Vertex ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END End on Vertex------------------" << std::endl;
 }
 
@@ -224,7 +242,8 @@ void endPointOnEdge(MetricField &field)
     OVM::Vec3d p = OVM::Vec3d(0.5, 0.5, 0.0);
     OVM::Vec3d q = OVM::Vec3d(0.25, 0.87, 1.22);
     std::cout << "-----------------START End on Edge ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END End on Edge ------------------" << std::endl;
 }
 
@@ -233,7 +252,8 @@ void endPointOnFace(MetricField &field)
     OVM::Vec3d p = OVM::Vec3d(0.25, 0.25, 0.0);
     OVM::Vec3d q = OVM::Vec3d(0.25, 0.87, 1.22);
     std::cout << "-----------------START End on Face ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
     std::cout << "-----------------END End on Face ------------------" << std::endl;
 }
 
@@ -244,6 +264,50 @@ void deformedTestCase(MetricField &field){
     std::cout << "-----------------START End on Face ------------------" << std::endl;
     field.tetFinder(toVec3d(q), toVec3d(p));
     std::cout << "-----------------END End on Face ------------------" << std::endl;
+}
+
+void tetFinderSameStartEndPoint(){
+    MetricField field = MetricField("/Users/FloriGod/Development/cube_field/meshes/0_1_cube.ovm");
+
+    auto p= OVM::Vec3d(0.75, 0.75, 0.75);
+    auto q= OVM::Vec3d(0.75, 0.75, 0.75);
+
+    
+    std::cout << "-----------------START SameStartEndPoint ------------------" << std::endl;
+    auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+
+    visualizePath(field, res);
+    std::cout << "-----------------END SameStartEndPoint ------------------" << std::endl;
+}
+
+void visualizePath(MetricField &field, std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments){
+
+    TM visualized_path;
+
+    TM ground_mesh = field.get_tetmesh();
+
+
+    auto addCell = [&ground_mesh, &visualized_path](OVM::CellHandle cell, OVM::Vec3d p1, OVM::Vec3d p2){
+        auto verts = ground_mesh.get_cell_vertices(cell);
+        auto v1 = visualized_path.add_vertex(ground_mesh.vertex(verts[0]));
+        auto v2 = visualized_path.add_vertex(ground_mesh.vertex(verts[1]));
+        auto v3 = visualized_path.add_vertex(ground_mesh.vertex(verts[2]));
+        auto v4 = visualized_path.add_vertex(ground_mesh.vertex(verts[3]));
+        visualized_path.add_cell(v1,v2,v3,v4);
+
+        visualized_path.add_edge(visualized_path.add_vertex(p1), visualized_path.add_vertex(p2));
+
+    };
+
+    for (const auto &segment : lineSegments)
+    {
+        auto cell = std::get<0>(segment);
+        OVM::Vec3d point1 = toOVMVec3d(std::get<1>(segment));
+        OVM::Vec3d point2 = toOVMVec3d(std::get<2>(segment));
+        addCell(cell, point1, point2);
+    }
+
+    saveToFile(visualized_path, "visualized_path.ovm");
 }
 
 
