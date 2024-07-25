@@ -6,10 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
+include(FetchContent)
+
 find_package(Eigen3 QUIET)
 if (NOT EIGEN3_FOUND)
     message("Eigen3 not found, downloading...")
-    include(FetchContent)
+
     FetchContent_Declare(
             eigen3
             URL https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.bz2
@@ -24,7 +26,6 @@ if (NOT EIGEN3_FOUND)
 endif ()
 
 # OVM
-include(FetchContent)
 set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external")
 
@@ -128,15 +129,14 @@ add_executable(${EXECUTABLE_FIELD}
         src/other_fields.cpp
         src/predicates.c
         src/tests.cpp
-        src/main.cpp
-        )
-
+        src/main.cpp)
 
 set(SOURCES
         src/metric_field.cpp
         src/other_fields.cpp
         src/predicates.c)
 
+# Configure static library for metric field
 add_library(${LIB_FIELD} STATIC ${SOURCES})
 
 target_compile_options(${EXECUTABLE_FIELD}
@@ -169,10 +169,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_link_libraries(${EXECUTABLE_FIELD}
             PRIVATE c++
             PRIVATE c++abi)
-endif ()
 
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    message("Using libc++")
     target_compile_options(${LIB_FIELD}
             PRIVATE -stdlib=libc++)
     target_link_libraries(${LIB_FIELD}
