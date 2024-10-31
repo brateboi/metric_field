@@ -1,3 +1,6 @@
+#ifndef OTHERFIELD_H
+#define OTHERFIELD_H
+
 #include <Eigen/Dense>
 
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
@@ -43,3 +46,5 @@ Vec3d deformInverse(Vec3d &p);
 Mat3d computeCoeffConstant(const OVM::CellHandle a, const OVM::CellHandle b, TM &tetmesh);
 OVM::FaceHandle commonFace(const OVM::CellHandle a, const OVM::CellHandle b, TM &tetmesh);
 void calculate_curl_constant_and_W(const OVM::CellHandle a, const OVM::CellHandle b, TM &tetmesh, Mat3d &curl_constant, Mat3d &W_a, Mat3d &W_b);
+
+#endif

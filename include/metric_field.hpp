@@ -1,3 +1,6 @@
+#ifndef METRICFIELD_H
+#define METRICFIELD_H
+
 #include <Eigen/Dense>
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
 #include <OpenVolumeMesh/Mesh/TetrahedralGeometryKernel.hh>
@@ -6,6 +9,7 @@
 #include <OpenVolumeMesh/FileManager/VtkColorReader.hh>
 #include <OpenVolumeMesh/Mesh/HexahedralMesh.hh>
 #include <OpenVolumeMesh/Mesh/PolyhedralMesh.hh>
+#include <mutex>
 
 using Quaternion = Eigen::Quaterniond;
 using Vec3d = Eigen::Matrix<double, 3, 1>;
@@ -25,11 +29,32 @@ struct cmpVec3d {
   }
 };
 
+struct hashFunc{
+    size_t operator()(const Vec3d &k) const{
+    size_t h1 = std::hash<double>()(k(0));
+    size_t h2 = std::hash<double>()(k(1));
+    size_t h3 = std::hash<double>()(k(2));
+    return (h1 ^ (h2 << 1)) ^ h3;
+    }
+};
+
+
+
+struct xor_hash {
+  template <class T1, class T2>
+    std::size_t operator() (const std::tuple<T1, T2> &v) const
+    {
+        return std::hash<T1>()(std::get<0>(v)) ^ (std::hash<T2>()(std::get<1>(v)) << 1);
+    }
+};
+
 class MetricField {
 
 private:
   TM tetmesh;
-  std::map<Eigen::VectorXd, std::vector<OVM::CellHandle>, cmpVec3d> hash;
+  // std::map<Eigen::VectorXd, std::vector<OVM::CellHandle>, cmpVec3d> hash;
+  std::unordered_map<Eigen::VectorXd, std::vector<OVM::CellHandle>, hashFunc> hash;
+  std::mutex hash_mutex;
   OVM::CellHandle prevTetContainingPoint = OVM::CellHandle(0);
 
   OVM::CellPropertyT<std::vector<OVM::VertexHandle>> cell_vertices;
@@ -84,6 +109,13 @@ private:
   
 
   public:
+  // std::unordered_map<u_int64_t, Mat3d> metricHash; // hashes the metric at the midpoint of the node_code
+  std::map<u_int64_t, Mat3d> metricHash; // hashes the metric at the midpoint of the node_code
+  // std::unordered_map<std::tuple<u_int64_t, uint64_t>, Vec3d, xor_hash> rotationHash; // hashes the rotations as EulerZYX angles, always sorted in lower<higher
+  std::map<std::tuple<u_int64_t, uint64_t>, Vec3d> rotationHash; // hashes the rotations as EulerZYX angles, always sorted in lower<higher
+  // std::unordered_map<u_int64_t, std::map<u_int64_t, Vec3d>> rotationHashNested; // hashes the rotations as EulerZYX angles, always sorted in lower<higher
+
+
   Mat3d computeCoeff(const Vec3d& v_pos, const Vec3d& n_pos);
   MetricField();
   MetricField(std::string filename); // filename of mesh
@@ -104,12 +136,15 @@ private:
 
   TM& get_tetmesh();
 
+  Mat3d metricAtPoint(const Vec3d &_p); // metric accessible globably
+
+
+
 };
 
-extern "C" {
-  MetricField* create_metric_field(const char* mesh);
-  extern "C" void call_hello_world();
-}
+
+void hello_world();
+
 
 // helper finder rotation coefficient
 Mat3d unstack(const Vec9d &_m);
@@ -132,3 +167,4 @@ bool robustRayTriangle(const Vec3d& q, const Vec3d& p, const OVM::Vec3d& v1,
 // visualizing
 void markTetsAsIntersected(TM &tetmesh, std::vector<OVM::CellHandle> tets);
 void showIntersectionPoints(TM &tetmesh, std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> ints);
+#endif

@@ -1,3 +1,6 @@
+#ifndef TESTSFILE_H
+#define TESTSFILE_H
+
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
 #include <OpenVolumeMesh/Mesh/TetrahedralGeometryKernel.hh>
 
@@ -40,3 +43,5 @@ void endPointOnFace(MetricField &field);
 void tetFinderSameStartEndPoint();
 void showPoint();
 void visualizePath(MetricField &field, std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments);
+
+#endif

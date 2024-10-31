@@ -10,6 +10,8 @@
 
 #include "metric_field.hpp"
 #include "other_fields.hpp"
+#include "wrapper.h"
+
 
 
 #include <cmath>
@@ -26,29 +28,15 @@ using Mat9d = Eigen::Matrix<double, 9, 9>;
 using TM = OVM::TetrahedralGeometryKernel<OVM::Vec3d,
                                           OVM::TetrahedralMeshTopologyKernel>;
 
+#include <iostream>
 
 
-// C++ wrapper for extern C call
-extern "C" double* call_compute_coeff(MetricField* _f, const double* _q, const double* _p){
-  Vec3d q = Vec3d(_q);
-  Vec3d p = Vec3d(_p);
 
-  Mat3d rotation = _f->computeCoeff(q, p);
-  // convert rotation to Euler XYZ
-  Vec3d ea = rotation.eulerAngles(0, 1, 2);
-
-  return ea.data();
-
-}
-
-extern "C" MetricField* create_metric_field(const char* mesh){
-  return new MetricField(mesh);
-} 
-
-extern "C" void call_hello_world(){
-  std::cout << "HELLO WORLD, C++ call from C worked!" << std::endl;
+void hello_world(){
+  std::cout << "HELLO WORLD, C++ call from C worked! hopefull" << std::endl;
   return;
 } 
+
 
 
 // exact predicates
@@ -90,8 +78,8 @@ Mat3d MetricField::computeCoeff(const Vec3d &q, const Vec3d &p)
 std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> MetricField::tetFinder(const Vec3d &q, const Vec3d &p){
   bool failed = false;
 
-  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinderFast(q, p, failed);
-  // std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinderRobust(q, p);
+  // std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinderFast(q, p, failed);
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinderRobust(q, p);
 
   // check if run was degenerate, use robust, but slow tet finder
   if (failed){
@@ -130,12 +118,14 @@ Mat3d MetricField::computeCoeff(const Vec3d &q, const Vec3d &p, OVM::CellHandle 
   // fill hash with tet info
   std::vector<OVM::CellHandle> tets;
   tets.push_back(cq);
-  hash.try_emplace(q, tets);
+  #pragma omp critical
+  {
+    hash.try_emplace(q, tets);
 
-  tets.clear();
-  tets.push_back(cp);
-  hash.try_emplace(p, tets);
-
+    tets.clear();
+    tets.push_back(cp);
+    hash.try_emplace(p, tets);
+  }
 
   std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinder(q, p);
   Mat3d coeff = Mat3d::Identity();
@@ -178,11 +168,15 @@ MetricField::MetricField(std::string filename)
   // std::string filename = "myMesh1.ovm";
   // std::string filename = "s01c_cube.vtk";
   readInTetmesh(filename);
+  std::cout << "read in tetmesh " << std::endl;
   attach_cell_vertices();
-
+  std::cout << "attached cell vertices to property " << std::endl;
   prepareTransformation();
+  std::cout << "prepare inverse matrices" << std::endl;
   attachMetric();
+  std::cout << "attached metric " << std::endl;
   attachCurl();
+  std::cout << "attached curl " << std::endl;
 }
 
 MetricField::MetricField(TM &tetmesh_) {
@@ -239,6 +233,7 @@ void MetricField::attachMetric()
   OVM::VertexPropertyT<Mat3d> metric = tetmesh.create_persistent_vertex_property<Mat3d>("metric").value();
   for (OVM::VertexIter v_it = tetmesh.vertices_begin(); v_it != tetmesh.vertices_end(); ++v_it)
   {
+    // metric[*v_it] = 10.0*identity;
     //------------arc example or twisted rod, check rootMetricAnalytical implementation
     // Vec3d temp = toVec3d(tetmesh.vertex(*v_it));
     // metric[*v_it] = rootMetricAnalytical(temp);
@@ -249,23 +244,16 @@ void MetricField::attachMetric()
     // double z = tetmesh.vertex(*v_it)[2];
     // factor = (k-1.0)*z+1.0;
     // metric[*v_it]= identity * factor;
+    //--------------------------
+    // double factor;
+    // double k = 20.0;
+    // double z = tetmesh.vertex(*v_it)[2];
+    // factor = (4.5)*z+5.5;
+    // metric[*v_it]= identity * factor;
 
     //-------- ex1 --------------- isotropic sizing, cube divided into 3 parts
-    double factor;
-    double k = 10;
-    double z = tetmesh.vertex(*v_it)[2];
-    if (z < 1.0/3.0) {
-      factor = 1.0;
-    } else if (z > 1.0/3.0 && z < 2.0/3.0) {
-      factor = 3.0*(k-1.0)*z-k+2.0;
-    } else {
-      factor = k;
-    }
-    metric[*v_it]= identity * factor;
-
-    //-------- ex2 --------------- anisotropic sizing, cube divided into 3 partss
     // double factor;
-    // double k = 4;
+    // double k = 10;
     // double z = tetmesh.vertex(*v_it)[2];
     // if (z < 1.0/3.0) {
     //   factor = 1.0;
@@ -274,9 +262,22 @@ void MetricField::attachMetric()
     // } else {
     //   factor = k;
     // }
-    // identity(0,0) = factor;
-    // identity(2,2) = factor;
-    // metric[*v_it]= identity;
+    // metric[*v_it]= identity * factor;
+
+    //-------- ex2 --------------- anisotropic sizing, cube divided into 3 partss
+    double factor;
+    double k = 4;
+    double z = tetmesh.vertex(*v_it)[2];
+    if (z < 1.0/3.0) {
+      factor = 1.0;
+    } else if (z > 1.0/3.0 && z < 2.0/3.0) {
+      factor = 3*z*(k-1)-k+2;
+    } else {
+      factor = k;
+    }
+    identity(0,0) = factor;
+    identity(2,2) = factor;
+    metric[*v_it]= identity;
 
     //---------- anisotropic sizing, linearly increasing everywhere
     // double k = 4;
@@ -383,11 +384,23 @@ Mat3d MetricField::metricAtPoint(const OVM::CellHandle &ch, const Vec3d &_p)
   return res;
 }
 
+/**
+ * Returns metric at any point in the mesh, returns average if in multiple tets
+ */
+Mat3d MetricField::metricAtPoint(const Vec3d &_p){
+  // std::cout << "start metric at point " << std::endl;
+  const auto tets = locateTets(_p);
+  Mat3d metric = Mat3d::Constant(0.0);
+  for (const auto tet : tets){
+    metric += metricAtPoint(tet, _p);
+  }
+  // std::cout << "end metric at point " << std::endl;
+  return metric / tets.size();
+}
+
 // frobenius norm
 Mat3d MetricField::recursiveDivide(const OVM::CellHandle &ch, const Vec3d &a, const Vec3d &b)
 {
-  
-
   Mat3d r1 = lie_exp(integrate2Point(ch, a, b));
   Vec3d midpoint = (a + b) / 2.0;
   double length = (a - b).squaredNorm();
@@ -592,7 +605,8 @@ MetricField::tetFinderFast(const Vec3d &q, const Vec3d &p, bool &failed )
 
   // locate tet where q is located, and the ray qp points into it
 
-  OVM::VertexHandle startVertex = *tetmesh.cv_iter(prevTetContainingPoint);
+  // OVM::VertexHandle startVertex = *tetmesh.cv_iter(prevTetContainingPoint);
+  OVM::VertexHandle startVertex = *tetmesh.cv_iter(OVM::CellHandle(0));
   OVM::CellHandle t = locateTetsFast(startVertex, q, failed);
   if (failed){
     return ints;
@@ -606,6 +620,14 @@ MetricField::tetFinderFast(const Vec3d &q, const Vec3d &p, bool &failed )
   }
 
   bool success = initialization(t, q, p, u, v, w);
+  if (!success){
+    std::cout << "assertion failed " << std::endl;
+    std::cout << "q " << q.transpose() << std::endl;
+    std::cout << "p " << p.transpose() << std::endl;
+    std::cout << "u " << tetmesh.vertex(u) << std::endl;
+    std::cout << "v " << tetmesh.vertex(v) << std::endl;
+    std::cout << "w " << tetmesh.vertex(w) << std::endl;
+  }
   assert(success);
 
   // start walk
@@ -735,23 +757,27 @@ OVM::VertexHandle MetricField::linearNN(const Vec3d &_q)
 // returns a list of all tets containing q
 std::vector<OVM::CellHandle> MetricField::locateTets(const Vec3d &q)
 {
-  // check if point was hashed already
-  if (hash.contains(q))
-  {
-    // std::cout << "contained in hash" << std::endl;
-    return hash[q];
-  }
+    {
+      const std::lock_guard<std::mutex> lock(hash_mutex);
+      // check if point was hashed already
+      if (hash.contains(q))
+      {
+        // std::cout << "contained in hash" << std::endl;
+        return hash.at(q);
+      }
+    }
 
+  
   std::vector<OVM::CellHandle> tets;
 
   // check if previous cell contains point as good guess
-  if (prevTetContainingPoint != OVM::TopologyKernel::InvalidCellHandle) {
-    if (pointInTet(prevTetContainingPoint, q)) {
-      tets.push_back(prevTetContainingPoint);
-      // std::cout << " found in prev tet BIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIG " << std::endl;
-      return tets;
-    }
-  }
+  // if (prevTetContainingPoint != OVM::TopologyKernel::InvalidCellHandle) {
+  //   if (pointInTet(prevTetContainingPoint, q)) {
+  //     tets.push_back(prevTetContainingPoint);
+  //     // std::cout << " found in prev tet BIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIG " << std::endl;
+  //     return tets;
+  //   }
+  // }
 
   // std::cout << "searching q " << q << std::endl;
 
@@ -767,7 +793,7 @@ std::vector<OVM::CellHandle> MetricField::locateTets(const Vec3d &q)
     if (pointInTet(ch, q))
     {
       // std::cout << "contained " << std::endl;
-      prevTetContainingPoint = ch;
+      // prevTetContainingPoint = ch;
       tets.push_back(ch);
     }
   }
@@ -780,7 +806,7 @@ std::vector<OVM::CellHandle> MetricField::locateTets(const Vec3d &q)
     {
       if (pointInTet(ch, q))
       {
-        prevTetContainingPoint = ch;
+        // prevTetContainingPoint = ch;
         tets.push_back(ch);
         // std::cout << "in tet " << ch << std::endl;
       }
@@ -789,11 +815,16 @@ std::vector<OVM::CellHandle> MetricField::locateTets(const Vec3d &q)
     // if still empty, then mesh doesn't cover the domain
     if (tets.empty())
     {
+      std::cout << "q " << q.transpose() << std::endl;
       std::cout << "something is off, mesh doesn't cover the domain" << std::endl;
       tets.push_back(OVM::CellHandle(-1));
     }
   }
-  hash.try_emplace(q, tets);
+  {
+    
+      const std::lock_guard<std::mutex> lock(hash_mutex);
+    hash.try_emplace(q, tets);
+  }
 
   return tets;
 }
@@ -1094,12 +1125,12 @@ OVM::CellHandle MetricField::locateTetsFast(const OVM::VertexHandle &q, const Ve
 {
   // check if prev tet contained point as good guess.
   // check if previous cell contains point as good guess
-  if (prevTetContainingPoint != OVM::TopologyKernel::InvalidCellHandle) {
-    if (pointInTet(prevTetContainingPoint, p)) {
-      // std::cout << " found in prev tet " << std::endl;
-      return prevTetContainingPoint;
-    }
-  }
+  // if (prevTetContainingPoint != OVM::TopologyKernel::InvalidCellHandle) {
+  //   if (pointInTet(prevTetContainingPoint, p)) {
+  //     // std::cout << " found in prev tet " << std::endl;
+  //     return prevTetContainingPoint;
+  //   }
+  // }
 
   // std::cout << "start vertex q " << tetmesh.vertex(q) << std::endl;
 
@@ -1280,7 +1311,7 @@ OVM::CellHandle MetricField::locateTetsFast(const OVM::VertexHandle &q, const Ve
     return OVM::CellHandle(-1);
   }
 
-  prevTetContainingPoint = t;
+  // prevTetContainingPoint = t;
   return t;
 
 } 
@@ -1372,8 +1403,15 @@ MetricField::tetFinderRobust(const Vec3d &q, const Vec3d &p)
     std::cout << "failed to initialize correctly" << std::endl;
     std::cout << "q" << q.transpose() << std::endl;
     std::cout << "p" << p.transpose() << std::endl;
+
+    std::cout << "not even once adskfnaksdfhaksdhf" << std::endl;
+    std::cout << "starts size " << starts.size() << std::endl;
+
+    std::cout << "q is contained in the tet " << pointInTet(t, q) << std::endl;
+
     for (const auto _t : starts)
     {
+      
       std::cout << "\t tried tet " << _t << std::endl;
       // const auto temp = tetmesh.get_cell_vertices(_t);
       const auto temp = cell_vertices[_t];

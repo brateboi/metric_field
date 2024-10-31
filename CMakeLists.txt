@@ -39,6 +39,11 @@ if (NOT TARGET OpenVolumeMesh)
     
 endif()
 
+#libnado kd tree
+find_package(libnado REQUIRED)
+
+
+
 
 # Set warnings
 set(MSVC_WARNINGS
@@ -133,25 +138,26 @@ add_executable(${EXECUTABLE_FIELD}
 
 
 set(SOURCES
+        src/wrapper.cpp
         src/metric_field.cpp
         src/other_fields.cpp
         src/predicates.c)
 
-add_library(${LIB_FIELD} STATIC ${SOURCES})
+add_library(${LIB_FIELD} STATIC ${SOURCES} )
 
 target_compile_options(${EXECUTABLE_FIELD}
         PRIVATE ${PROJECT_WARNINGS})
 
 # for shared lib
 target_compile_options(${LIB_FIELD}
-        PRIVATE ${PROJECT_WARNINGS})
+        PUBLIC ${PROJECT_WARNINGS})
 
 target_include_directories(${EXECUTABLE_FIELD}
         PRIVATE include)
 
 # for shared lib
 target_include_directories(${LIB_FIELD}
-        PRIVATE include)
+        PUBLIC include)
 
 target_link_libraries(${EXECUTABLE_FIELD}
         PRIVATE Eigen3::Eigen
@@ -159,8 +165,8 @@ target_link_libraries(${EXECUTABLE_FIELD}
 
 # for shared lib
 target_link_libraries(${LIB_FIELD}
-        PRIVATE Eigen3::Eigen
-        PRIVATE OpenVolumeMesh::OpenVolumeMesh)
+        PUBLIC Eigen3::Eigen
+        PUBLIC OpenVolumeMesh::OpenVolumeMesh)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message("Using libc++")
@@ -174,10 +180,10 @@ endif ()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message("Using libc++")
     target_compile_options(${LIB_FIELD}
-            PRIVATE -stdlib=libc++)
+            PUBLIC -stdlib=libc++)
     target_link_libraries(${LIB_FIELD}
-            PRIVATE c++
-            PRIVATE c++abi)
+            PUBLIC c++
+            PUBLIC c++abi)
 endif ()
 
 # ########################################################
