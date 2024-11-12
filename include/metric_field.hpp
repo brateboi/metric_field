@@ -4,6 +4,7 @@
 #include <Eigen/Dense>
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
 #include <OpenVolumeMesh/Mesh/TetrahedralGeometryKernel.hh>
+#include <mesh_element.hpp>
 
 #include <OpenVolumeMesh/FileManager/FileManager.hh>
 #include <OpenVolumeMesh/FileManager/VtkColorReader.hh>
@@ -93,6 +94,13 @@ private:
   bool pointInTet(const OVM::CellHandle &ch, const Vec3d &q);
   double orient3dHelper(const OVM::VertexHandle a, const OVM::VertexHandle b,
                         const OVM::VertexHandle c, const Vec3d d);
+
+  double orient3dHelper(const OVM::Vec3d a, const OVM::Vec3d b,
+                        const OVM::Vec3d c, const OVM::Vec3d d);
+
+  double orient3dHelper(const OVM::HalfFaceHandle hfh,
+                                   const Vec3d d);
+
   double orient3dHelper(const OVM::VertexHandle a, const OVM::VertexHandle b,
                         const Vec3d c, const Vec3d d);
   double orient3dHelper(const OVM::VertexHandle a, const OVM::VertexHandle b,
@@ -106,7 +114,15 @@ private:
 
   std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> tetFinderFast(const Vec3d &q, const Vec3d &p, bool &failed);
   std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> tetFinderRobust(const Vec3d &q, const Vec3d &p);
+
+
   
+  OVM::HalfFaceHandle findOppositeNextHalfFace(const OVM::CellHandle& ch, const OVM::HalfFaceHandle& hfh, const Vec3d &q, const Vec3d &p);
+  bool pointInTetWithElement(OVM::CellHandle ch, const OVM::Vec3d param, MeshElement& elem);
+  OVM::CellHandle findCorrectStartTet(OVM::CellHandle start_tet, const Vec3d &q, const Vec3d &p);
+
+  std::vector<OVM::HalfFaceHandle> getIncidentHalfFaces(const OVM::CellHandle& ch, const OVM::EdgeHandle& eh);
+  std::vector<OVM::HalfFaceHandle> getIncidentHalfFaces(const OVM::CellHandle& ch, const OVM::VertexHandle& vh);
 
   public:
   // std::unordered_map<u_int64_t, Mat3d> metricHash; // hashes the metric at the midpoint of the node_code
@@ -130,6 +146,9 @@ private:
 
   Mat3d computeCoeff(const Vec3d &q, const Vec3d &p, OVM::CellHandle &cq, OVM::CellHandle &cp);
 
+  // computes the rotation between two points in the metric field, main function, start_tet is the cell that contains q
+  Mat3d computeCoeffImproved(const OVM::CellHandle &start_tet, const Vec3d &q, const Vec3d &p);
+
   int get_degenerate_counter();
   
   std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> tetFinder(const Vec3d &q, const Vec3d &p);
@@ -138,7 +157,8 @@ private:
 
   Mat3d metricAtPoint(const Vec3d &_p); // metric accessible globably
 
-
+  OVM::CellHandle startCellFinder(OVM::CellHandle start_tet, const Vec3d &q, const Vec3d &p);
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> tetFinderTobias(OVM::CellHandle start_tet, const Vec3d &q, const Vec3d &p, bool compute_intersections = true);
 
 };
 

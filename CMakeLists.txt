@@ -40,7 +40,7 @@ if (NOT TARGET OpenVolumeMesh)
 endif()
 
 #libnado kd tree
-find_package(libnado REQUIRED)
+# find_package(libnado REQUIRED PATHS "/Users/FloriGod/Development/libnabo/build_dir/")
 
 
 

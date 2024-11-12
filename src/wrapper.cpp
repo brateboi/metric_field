@@ -19,23 +19,6 @@ void call_hello_world(){
 }
 
 
-// put this into metric field file, cant be here to compile to C
-Mat3d retrieve_metric(MetricFieldStruct* _f, const uint64_t node_code, const double* _point){
-    MetricField* f = _f->instance;
-    
-    if (f->metricHash.contains(node_code)) {
-        return f->metricHash[node_code];
-    } else {
-        Mat3d metric;
-        Vec3d point = Vec3d(_point);
-        metric = f->metricAtPoint(point);
-        f->metricHash[node_code] = metric;
-
-        return metric;
-    }
-}
-
-
 // C++ wrapper for extern C call
 void call_compute_coeff(MetricFieldStruct* _f, const double* _q, const double* _p, double* result){
     MetricField* f = _f->instance;
@@ -57,13 +40,34 @@ void call_compute_coeff(MetricFieldStruct* _f, const double* _q, const double* _
     return;
 }
 
-void new_direction(MetricFieldStruct* _f, const double* _dir, const double* _point, double* result){
+// C++ wrapper for extern C call
+void call_compute_coeff_improved(MetricFieldStruct* _f, const int _cell_handle_start, const double* _q, const double* _p, double* result){
+    MetricField* f = _f->instance;
+
+    Vec3d q = Vec3d(_q);
+    Vec3d p = Vec3d(_p);
+    OVM::CellHandle cell_handle_start = OVM::CellHandle(_cell_handle_start);
+
+    Vec3d ea;
+    Mat3d rotation = f->computeCoeffImproved(cell_handle_start, q, p);
+
+    // maybe this should be 2,1,0, not sure
+    ea = rotation.eulerAngles(0,1,2);
+    // ea = rotation.eulerAngles(2,1,0);
+
+    result[0] = ea(0);
+    result[1] = ea(1);
+    result[2] = ea(2);
+
+    return;
+}
+
+void new_direction(MetricFieldStruct* _f, const int _cell_handle, const double* _dir, const double* _point, double* result){
     MetricField* f = _f->instance;
     Vec3d dir = Vec3d(_dir);
     Vec3d point = Vec3d(_point);
 
-    // FIXME TODO Metric Field. find correct CellHandle, CACHE IT
-    Mat3d g = f->metricAtPoint(point);
+    Mat3d g = f->metricAtPoint(OVM::CellHandle(_cell_handle), point);
     Vec3d temp = g * dir;
 
     result[0] = temp(0);
@@ -73,33 +77,24 @@ void new_direction(MetricFieldStruct* _f, const double* _dir, const double* _poi
 }
 
 
-void new_normal(MetricFieldStruct* _f, const double* _normal, const double* _point, double* result){
+void new_normal(MetricFieldStruct* _f, const int _cell_handle, const double* _normal, const double* _point, double* result){
     MetricField* f = _f->instance;
     Vec3d normal = Vec3d(_normal);
     Vec3d point = Vec3d(_point);
 
-    // FIXME TODO Metric Field. find correct CellHandle, CACHE IT
-    Mat3d g_inverse = (f->metricAtPoint(point)).inverse();
+    Mat3d g_inverse = (f->metricAtPoint(OVM::CellHandle(_cell_handle), point)).inverse();
+
+    // std::cout << "g_inverse" << g_inverse << std::endl;
 
     Vec3d temp = g_inverse * normal;
     result[0] = temp(0);
     result[1] = temp(1);
     result[2] = temp(2);
 
+    // std::cout << "temp " << temp << std::endl;
+    assert(false);
     return;
 }
-
-// double* transform_to_metric_space(MetricFieldStruct* _f, const double* start_tangent, const uint64_t node_code, const double* node_midpoint){
-//     // transforms the given vector to metric space with g^{1/2}*vec
-    
-//     Vec3d direction = Vec3d(start_tangent);
-
-//     Mat3d metric = retrieve_metric(_f, node_code, node_midpoint);
-
-//     Vec3d res = metric * direction;
-//     return res.data();
-
-// }
 
 void transform_to_metric_space(double* _direction, double* _metric){ // transforms the direction with the metric in place
     Vec3d direction = Vec3d(_direction);
@@ -115,11 +110,11 @@ void transform_to_metric_space(double* _direction, double* _metric){ // transfor
 }
 
 
-void metric_at_point(MetricFieldStruct* _f, const double* midpoint, double* metric_result /*where to write the metric*/){
+void metric_at_point(MetricFieldStruct* _f, const int _cell_handle, const double* midpoint, double* metric_result /*where to write the metric*/){
     MetricField* f = _f->instance;
     Vec3d point = Vec3d(midpoint);
 
-    Mat3d metric = f->metricAtPoint(point);
+    Mat3d metric = f->metricAtPoint(OVM::CellHandle(_cell_handle) ,point);
     metric_result[0] = metric.coeff(0,0);
     metric_result[1] = metric.coeff(1,0);
     metric_result[2] = metric.coeff(2,0);
@@ -129,18 +124,30 @@ void metric_at_point(MetricFieldStruct* _f, const double* midpoint, double* metr
     return;
 }
 
-// double vec3_abs_dot_metric(MetricFieldStruct* _f, const double* _dir1, const double* _dir2, const uint64_t node_code, const double* node_midpoint){
-//     return(abs(vec3_dot_metric(_f, _dir1, _dir2, node_code, node_midpoint)));
-// }
 
-// double vec3_dot_metric(MetricFieldStruct* _f, const double* _dir1, const double* _dir2, const uint64_t node_code, const double* node_midpoint){
-//     Vec3d dir1 = Vec3d(_dir1);
-//     Vec3d dir2 = Vec3d(_dir2);
+int walk_to_point(MetricFieldStruct* _f, const int _cell_handle_start, const double* _start_position, const double* _end_position){
+    MetricField* f = _f->instance;
+    auto cell_handle_start = OVM::CellHandle(_cell_handle_start);
 
-//     Mat3d metric = retrieve_metric(_f, node_code, node_midpoint);
+    Vec3d start_position = Vec3d(_start_position);
+    Vec3d end_position = Vec3d(_end_position);
 
-//     return(dir1.transpose()*metric*metric*dir2);
-// }
+    return f->startCellFinder(OVM::CellHandle(_cell_handle_start), start_position, end_position).idx();
+    
+}
 
+int walk_to_point_initial(MetricFieldStruct* _f, const double* _end_position){
+    MetricField* f = _f->instance;
+    auto cell_handle_start = OVM::CellHandle(0);
 
+    Vec3d start_position = toVec3d(f->get_tetmesh().barycenter(cell_handle_start));
+    Vec3d end_position = Vec3d(_end_position);
 
+    // std::cout << "Walking walking walking " << std::endl;
+    const int cell_handle = f->startCellFinder(cell_handle_start, start_position, end_position).idx();
+    // std::cout << "titijasdlijasdf" << cell_handle << std::endl;
+
+    return cell_handle;
+    // return 0;
+    
+}

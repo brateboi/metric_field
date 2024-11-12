@@ -12,7 +12,7 @@
 #include "other_fields.hpp"
 #include "wrapper.h"
 
-
+#include <algorithm>
 
 #include <cmath>
 #include <limits>
@@ -65,6 +65,23 @@ Mat3d MetricField::computeCoeff(const Vec3d &q, const Vec3d &p)
   // return Mat3d::Identity(); // no work
 
   std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinder(q, p);
+
+  Mat3d coeff = Mat3d::Identity();
+  for (const auto &segment : lineSegments)
+  {
+    coeff = computeCoeff(std::get<0>(segment), std::get<1>(segment), std::get<2>(segment)) * coeff;
+  }
+
+  return coeff;
+}
+
+// computes the rotation between two points in the metric field, main function, start_tet is the cell that contains q
+Mat3d MetricField::computeCoeffImproved(const OVM::CellHandle &start_tet, const Vec3d &q, const Vec3d &p)
+{
+  assert(pointInTet(start_tet, q)); // q needs to be contained in startTet, otherwise tetFinderTobias doesnt work
+  // return Mat3d::Identity(); // no work
+
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments = tetFinderTobias(start_tet, q, p);
 
   Mat3d coeff = Mat3d::Identity();
   for (const auto &segment : lineSegments)
@@ -233,7 +250,7 @@ void MetricField::attachMetric()
   OVM::VertexPropertyT<Mat3d> metric = tetmesh.create_persistent_vertex_property<Mat3d>("metric").value();
   for (OVM::VertexIter v_it = tetmesh.vertices_begin(); v_it != tetmesh.vertices_end(); ++v_it)
   {
-    // metric[*v_it] = 10.0*identity;
+    // metric[*v_it] = identity;
     //------------arc example or twisted rod, check rootMetricAnalytical implementation
     // Vec3d temp = toVec3d(tetmesh.vertex(*v_it));
     // metric[*v_it] = rootMetricAnalytical(temp);
@@ -265,18 +282,18 @@ void MetricField::attachMetric()
     // metric[*v_it]= identity * factor;
 
     //-------- ex2 --------------- anisotropic sizing, cube divided into 3 partss
-    double factor;
-    double k = 4;
-    double z = tetmesh.vertex(*v_it)[2];
-    if (z < 1.0/3.0) {
-      factor = 1.0;
-    } else if (z > 1.0/3.0 && z < 2.0/3.0) {
-      factor = 3*z*(k-1)-k+2;
-    } else {
-      factor = k;
-    }
-    identity(0,0) = factor;
-    identity(2,2) = factor;
+    // double factor;
+    // double k = 4;
+    // double z = tetmesh.vertex(*v_it)[2];
+    // if (z < 1.0/3.0) {
+    //   factor = 1.0;
+    // } else if (z > 1.0/3.0 && z < 2.0/3.0) {
+    //   factor = 3*z*(k-1)-k+2;
+    // } else {
+    //   factor = k;
+    // }
+    // identity(0,0) = factor;
+    // identity(2,2) = factor;
     metric[*v_it]= identity;
 
     //---------- anisotropic sizing, linearly increasing everywhere
@@ -369,12 +386,13 @@ void MetricField::calculateCurl(const OVM::CellHandle &ch)
  */
 Mat3d MetricField::metricAtPoint(const OVM::CellHandle &ch, const Vec3d &_p)
 {
+  // assert(pointInTet(ch, _p));
   Mat4d T = tetmesh.request_cell_property<Mat4d>("T")[ch];
   OVM::VertexPropertyT<Mat3d> metric = tetmesh.request_vertex_property<Mat3d>("metric");
 
   Vec4d p;
   p << _p(0), _p(1), _p(2), 1;
-  Vec4d lambda = T * p;
+  const Vec4d lambda = T * p;
   // const auto verts = tetmesh.get_cell_vertices(ch);
   const auto verts = cell_vertices[ch];
   Mat3d res =
@@ -515,6 +533,8 @@ Vec3d MetricField::integrate2Point(const OVM::CellHandle &ch, const Vec3d &a, co
 */
 Mat3d MetricField::computeCoeff(const OVM::CellHandle &ch, const Vec3d &q, const Vec3d &p)
 {
+  // assert(pointInTet(ch, q));
+  // assert(pointInTet(ch, p));
   return lie_exp(integrate2Point(ch, q, p)); // go only to boundary of cell
   //return recursiveDivide(ch, q, p); // do normal recursive division
 }
@@ -690,6 +710,245 @@ MetricField::tetFinderFast(const Vec3d &q, const Vec3d &p, bool &failed )
   ints.push_back(std::make_tuple(t, prev, p));
   return ints;
 }
+
+/**
+ * TOBIAS VERY SUPER SMART TRACING CODE
+ */
+
+OVM::HalfFaceHandle MetricField::findOppositeNextHalfFace(const OVM::CellHandle& ch, const OVM::HalfFaceHandle& hfh, const Vec3d &q, const Vec3d &p)
+    {
+    assert(!hfh.is_valid() || tetmesh.incident_cell(hfh) == ch);
+
+    for (const auto& checkHfh : tetmesh.cell(ch).halffaces()) {
+        if (checkHfh == hfh) continue;
+
+        const auto& vertices = tetmesh.get_halfface_vertices(checkHfh);
+        auto u = vertices[0]; // params[0]
+        auto v = vertices[1];// params[1]
+        auto w = vertices[2];// params[2]
+
+
+        // Primary direction must cut through the plane given by the face
+        // if (ori3d(params[0], params[1], params[2], u) != ORI_ABOVE || ori3d(params[0], params[1], params[2], u + d1) != ORI_BELOW)
+        if (orient3dHelper(u, v, w, q) != 1 || orient3dHelper(u, v, w, p) != -1)
+            continue;
+
+        // Get the orientations of the 3 tets formed around u, u+d1
+        std::array<int, 3> oris;
+        oris[0] = orient3dHelper(u, v, q, p);
+        oris[1] = orient3dHelper(v, w, q, p);
+        oris[2] = orient3dHelper(w, u, q, p);
+
+        // Check if primary direction cuts through interior/center of triangle
+        if (oris[0] == oris[1] && oris[0] == oris[2]) {
+            assert(oris[0] == -1);
+            return checkHfh; // case 1
+        }
+
+        // Check if primary direction does not cut through triangle at all
+        if (std::any_of(oris.begin(), oris.end(), [](int ori){return ori == -1;}) && std::any_of(oris.begin(), oris.end(), [](int ori){return ori == 1;})) {
+            continue;
+        }
+
+        // Otherwise the primary direction cuts through the triangles boundary (edge or vertex). First get all edge intersection (amount must be 1 or 2)
+        std::vector<int> edgeIntersections;
+        for (unsigned char i = 0; i < oris.size(); ++i)
+        { 
+          if (oris[i] == 0) edgeIntersections.push_back(i);
+        }
+
+        if (edgeIntersections.size() == 1) {  // Pointing through edge - case 2
+            return checkHfh;
+            // // Get vertices in order s.t. first and second correspond to the intersected edge
+            // auto index = edgeIntersections[0];
+            // auto from_vertex = vertices[index];
+            // auto to_vertex = vertices[(index+1)%3];
+            // auto other_vertex = vertices[(index+2)%3];
+
+          
+        } else { // Pointing through vertex - case 3
+            assert(edgeIntersections.size() == 2);
+
+            return checkHfh;
+
+            // // Get vertices s.t. first vertex is the intersected one
+            // auto index = 0;
+            // if (edgeIntersections[0] == 1) index = 2; else if (edgeIntersections[1] == 1) index = 1;
+
+            // auto intersectedVertex = vertices[index];
+            // auto oneOtherVertex = vertices[(index+1)%3];
+            // auto otherOtherVertex = vertices[(index+2)%3];
+            // params = hexEx.getParametrization().get(ch, intersectedVertex, oneOtherVertex, otherOtherVertex);
+
+            // // the secondary direction must be on the correct side
+            // if (ori3d(params[1], params[0], u, u + d2) == ORI_BELOW || ori3d(params[0], params[2], u, u + d2) == ORI_BELOW)
+            //     continue;
+
+            // return checkHfh;
+        }
+    }
+
+
+    }
+
+
+/**
+ * Given a start_tet where q is containted, returns tet containing p, starting from q, without calculating all intersection points.
+ */
+OVM::CellHandle MetricField::startCellFinder(OVM::CellHandle start_tet, const Vec3d &q, const Vec3d &p) {
+  auto result = tetFinderTobias(start_tet, q, p, false);
+  auto last_segment = result.back();
+
+  auto contained_cell = std::get<0>(last_segment);
+  assert(pointInTet(contained_cell, p));
+  return contained_cell;
+}
+
+/**
+ * assumes q is contained within start_tet
+ */
+std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> MetricField::tetFinderTobias(OVM::CellHandle start_tet, const Vec3d &q, const Vec3d &p, bool compute_intersections) {
+  assert(pointInTet(start_tet, q));
+
+  std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> ints;
+
+  if (pointInTet(start_tet, p)){ // if p is already contained, we are done here
+    ints.push_back(std::make_tuple(start_tet, q, p));
+    return ints;
+  }
+
+  
+  // get correct start_tet, initial tet may not be valid because the ray from qp does not go through a correct halfface
+  // std::cout << "curr tet " << start_tet << std::endl;
+  start_tet = findCorrectStartTet(start_tet, q, p);
+  OVM::CellHandle curr_tet = start_tet;
+  OVM::HalfFaceHandle curr_face = OVM::HalfFaceHandle(-1);
+
+  Vec3d prev = q;
+
+
+  while(!pointInTet(curr_tet, p)){
+    curr_face = findOppositeNextHalfFace(curr_tet, curr_face, q, p).opposite_handle();
+    curr_tet = tetmesh.incident_cell(curr_face);
+
+    if (compute_intersections){
+      auto verts =  tetmesh.get_halfface_vertices(curr_face);
+
+      Vec3d curr = intersection(q, p, verts[0], verts[1], verts[2]);
+      ints.push_back(std::make_tuple(curr_tet, prev, curr));
+
+      prev = curr;
+        // std::cout << "curr tet " << curr_tet << std::endl;
+
+    } else {
+      ints.push_back(std::make_tuple(curr_tet, Vec3d(0,0,0), Vec3d(0,0,0)));
+        // std::cout << "starting curr tet " << curr_tet << std::endl;
+
+    }
+    
+
+  }
+
+  assert(ints.size() > 0);
+
+  if (compute_intersections){
+    // also make sure to get element from q to first intersection point
+    auto first_segment = ints.at(0);
+
+    ints.push_back(std::make_tuple(start_tet, q, std::get<1>(first_segment)));
+    std::rotate(ints.rbegin(), ints.rbegin() + 1, ints.rend());
+
+    // append from last intersection point to p
+    ints.push_back(std::make_tuple(curr_tet, prev, p));
+  }
+  
+
+  return ints;
+}
+
+OVM::CellHandle MetricField::findCorrectStartTet(OVM::CellHandle start_tet, const Vec3d &q, const Vec3d &p){
+  MeshElement start_element = MeshElement();
+
+  bool valid_start = pointInTetWithElement(start_tet, toOVMVec3d(q), start_element);
+  assert(valid_start);
+
+  if (start_element.is_cell()){
+    // all good
+
+  } else if (start_element.is_face()){
+    auto verts = tetmesh.get_halfface_vertices(start_element.hfh());
+
+    // take cell that has remaining vertex on same side as p
+    if (orient3dHelper(verts[0], verts[1], verts[2], p) == -1){ // not on same side
+      start_tet = tetmesh.incident_cell(start_element.hfh().opposite_handle());
+    }
+  } else if (start_element.is_edge()){
+    for (auto ec_it = tetmesh.ec_iter(start_element.eh()); ec_it.is_valid(); ++ec_it){
+      const auto& hfhs = getIncidentHalfFaces(*ec_it, start_element.eh());
+      assert(hfhs.size()==2);
+      if (orient3dHelper(hfhs[0], p) == -1) continue;
+      if (orient3dHelper(hfhs[1], p) == -1) continue;
+      start_tet = *ec_it;
+      break;
+    }
+  } else if (start_element.is_vertex()){
+    for (auto vc_it = tetmesh.vc_iter(start_element.vh()); vc_it.is_valid(); ++vc_it){
+      const auto& hfhs = getIncidentHalfFaces(*vc_it, start_element.vh());
+      assert(hfhs.size()==3);
+      if (orient3dHelper(hfhs[0], p) == -1) continue;
+      if (orient3dHelper(hfhs[1], p) == -1) continue;
+      if (orient3dHelper(hfhs[2], p) == -1) continue;
+      start_tet = *vc_it;
+      break;
+    }
+  }
+  return start_tet;
+}
+
+bool MetricField::pointInTetWithElement(OVM::CellHandle ch, const OVM::Vec3d param, MeshElement& elem)
+{
+    // Get the 4 vertices of the tet and their parameters in the chart of the tet
+    const auto& vhs = cell_vertices[ch];
+
+
+
+    std::vector<OVM::Vec3d> params = {tetmesh.vertex(vhs[0]), tetmesh.vertex(vhs[1]), tetmesh.vertex(vhs[2]), tetmesh.vertex(vhs[3])};
+    for (char i = 0; i <= 3; ++i) {if (params[i] == param) {elem.set(vhs[i]); return true;}}
+
+    auto oris = std::array<int, 4>();
+    oris[0] = orient3dHelper(params[0], params[1], params[2], param); if (oris[0] == -1) return false;
+    oris[1] = orient3dHelper(params[0], params[2], params[3], param); if (oris[1] == -1) return false;
+    oris[2] = orient3dHelper(params[0], params[3], params[1], param); if (oris[2] == -1) return false;
+    oris[3] = orient3dHelper(params[1], params[3], params[2], param); if (oris[3] == -1) return false;
+
+    auto zeros = std::vector<char>();
+    zeros.reserve(2);
+    for (char i = 0; i <= 3; ++i) {if (oris[i] == 0) {zeros.push_back(i);}}
+
+    if (zeros.size() == 2) {
+        if (zeros[0] == 0 && zeros[1] == 1) {elem.set(tetmesh.find_halfedge(vhs[0], vhs[2]));}
+        else if (zeros[0] == 0 && zeros[1] == 2) {elem.set(tetmesh.find_halfedge(vhs[0], vhs[1]));}
+        else if (zeros[0] == 0 && zeros[1] == 3) {elem.set(tetmesh.find_halfedge(vhs[1], vhs[2]));}
+        else if (zeros[0] == 1 && zeros[1] == 2) {elem.set(tetmesh.find_halfedge(vhs[0], vhs[3]));}
+        else if (zeros[0] == 1 && zeros[1] == 3) {elem.set(tetmesh.find_halfedge(vhs[2], vhs[3]));}
+        else if (zeros[0] == 2 && zeros[1] == 3) {elem.set(tetmesh.find_halfedge(vhs[1], vhs[3]));}
+        return true;
+    }
+    if (zeros.size() == 1) {
+        if (zeros[0] == 0) {elem.set(tetmesh.find_halfface_in_cell({vhs[0], vhs[1], vhs[2]}, ch));}
+        else if (zeros[0] == 1) {elem.set(tetmesh.find_halfface_in_cell({vhs[0], vhs[2], vhs[3]}, ch));}
+        else if (zeros[0] == 2) {elem.set(tetmesh.find_halfface_in_cell({vhs[0], vhs[3], vhs[1]}, ch));}
+        else if (zeros[0] == 3) {elem.set(tetmesh.find_halfface_in_cell({vhs[1], vhs[3], vhs[2]}, ch));}
+        return true;
+    }
+    if (zeros.size() == 0) {
+        elem.set(ch);
+        return true;
+    }
+    return false;
+}
+
+
 
 /**
  * jumps through face uvw to neighbor, reassigns t 
@@ -1056,6 +1315,16 @@ double MetricField::orient3dHelper(const OVM::VertexHandle a,
                        tetmesh.vertex(c).data(), d.data());
 }
 
+double MetricField::orient3dHelper(const OVM::HalfFaceHandle hfh,
+                                   const Vec3d d)
+{
+  auto verts = tetmesh.get_halfface_vertices(hfh);
+
+
+  return orient3dPaper(tetmesh.vertex(verts[0]).data(), tetmesh.vertex(verts[1]).data(),
+                       tetmesh.vertex(verts[2]).data(), d.data());
+}
+
 double MetricField::orient3dHelper(const OVM::VertexHandle a,
                                    const OVM::VertexHandle b, const Vec3d c,
                                    const Vec3d d)
@@ -1072,6 +1341,12 @@ double MetricField::orient3dHelper(const OVM::VertexHandle a,
   return orient3dPaper(tetmesh.vertex(a).data(), tetmesh.vertex(b).data(),
                        tetmesh.vertex(c).data(), tetmesh.vertex(d).data());
 }
+
+double MetricField::orient3dHelper(const OVM::Vec3d a, const OVM::Vec3d b,
+                        const OVM::Vec3d c, const OVM::Vec3d d) {
+  return orient3dPaper(a.data(), b.data(),
+                       c.data(), d.data());
+                        }
 
 // returns true if v contains x
 bool contains(const std::vector<OVM::CellHandle> &v, OVM::CellHandle x)
@@ -1494,4 +1769,33 @@ MetricField::tetFinderRobust(const Vec3d &q, const Vec3d &p)
   // add last element because loop terminated
   ints.push_back(std::make_tuple(t, prev, p));
   return ints;
+}
+
+std::vector<OVM::HalfFaceHandle> MetricField::getIncidentHalfFaces(const OVM::CellHandle& ch, const OVM::EdgeHandle& eh)
+{
+    OVM::OpenVolumeMeshCell c = tetmesh.cell(ch);
+    OVM::OpenVolumeMeshEdge e = tetmesh.edge(eh);
+    std::vector<OVM::HalfFaceHandle> res;
+    res.reserve(2);
+    for (const auto& hfh : c.halffaces())
+        for (const auto& heh : tetmesh.halfface(hfh).halfedges())
+            if (heh.edge_handle() == eh) {
+                res.push_back(hfh);
+                if (res.size()==2) return res;
+            }
+    return res;
+}
+
+std::vector<OVM::HalfFaceHandle> MetricField::getIncidentHalfFaces(const OVM::CellHandle& ch, const OVM::VertexHandle& vh)
+{
+    OVM::OpenVolumeMeshCell c = tetmesh.cell(ch);
+    std::vector<OVM::HalfFaceHandle> res;
+    res.reserve(3);
+    for (const auto& hfh : c.halffaces())
+        for (const auto& heh : tetmesh.halfface(hfh).halfedges())
+            if (tetmesh.from_vertex_handle(heh) == vh) {
+                res.push_back(hfh);
+                if (res.size()==3) return res;
+            }
+    return res;
 }

@@ -31,36 +31,52 @@ using TM = OVM::TetrahedralGeometryKernel<OVM::Vec3d,
 
 int main(int argc, char* argv[])
 {
-    
 	std::cout << "hello wdsforld" << std::endl;
     // ovmTest();
     
-    showPoint();
+    // showPoint();
     // robustRayTriangleTest();
     TM tetmesh;
     populateMesh(tetmesh);
     MetricField field = MetricField(tetmesh);
+    saveToFile(tetmesh, "testmesh.ovm");
 
     // normalCase(field);
     normalTetFinderCase(field);
     // tetFinderCaseWeird(field);
-    // throughVertex(field);
-    // throughEdge(field);
-    // throughFace(field);
-    // startPointOnVertex(field);
-    // startPointOnEdge(field);
-    // startPointOnFace(field);
-    // endPointOnVertex(field);
-    // endPointOnEdge(field);
-    // endPointOnFace(field);
-    // tetFinderSameStartEndPoint();
-    saveToFile(tetmesh, "testmesh.ovm");
+    throughVertex(field);
+    throughEdge(field);
+    throughFace(field);
+    startPointOnVertex(field);
+    startPointOnEdge(field);
+    startPointOnFace(field);
+    endPointOnVertex(field);
+    endPointOnEdge(field);
+    endPointOnFace(field);
+    tetFinderSameStartEndPoint(field);
+    anotherCoolTest(field);
+    // saveToFile(tetmesh, "testmesh.ovm");
 
     // throughVertex(tetmesh);
     
     // saveToFile(tetmesh, "oneTet.ovm");
     // deformedTestCase();
 
+    // Vec3d a = Vec3d(-1,-1, 0.5);
+    // Vec3d b = Vec3d(1,1,0);
+    // Vec3d c = Vec3d(0,0, 1);
+    // Vec3d d = Vec3d(0,0,0.4);
+    // Vec3d e = Vec3d(-1,0,0);
+    // Vec3d f = Vec3d(0,-1,0);
+
+    // std::cout << " cdab " << orient3dPaper(c.data(),d.data(),a.data(),b.data()) << std::endl;
+    // std::cout << " edab " << orient3dPaper(e.data(),d.data(),a.data(),b.data()) << std::endl;
+    // std::cout << " fdab " << orient3dPaper(f.data(),d.data(),a.data(),b.data()) << std::endl;
+
+    // std::cout << " ab " << orient3dPaper(f.data(),d.data(),a.data(),b.data()) << std::endl;
+
+
+    
 
 }
 

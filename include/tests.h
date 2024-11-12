@@ -40,7 +40,8 @@ void startPointOnFace(MetricField &field);
 void endPointOnVertex(MetricField &field);
 void endPointOnEdge(MetricField &field);
 void endPointOnFace(MetricField &field);
-void tetFinderSameStartEndPoint();
+void tetFinderSameStartEndPoint(MetricField &field);
+void anotherCoolTest(MetricField &field);
 void showPoint();
 void visualizePath(MetricField &field, std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> lineSegments);
 
