@@ -29,7 +29,6 @@ using TM = OVM::TetrahedralGeometryKernel<OVM::Vec3d, OVM::TetrahedralMeshTopolo
 
 void addTet(TM &tetmesh, OVM::VertexHandle &v0, OVM::VertexHandle &v1, OVM::VertexHandle &v2, OVM::VertexHandle &v3);
 void populateMesh(TM &tetmesh);
-void normalCase(MetricField &field);
 void normalTetFinderCase(MetricField &field);
 void throughVertex(MetricField &field);
 void throughEdge(MetricField &field);

@@ -141,22 +141,6 @@ void populateMesh(TM &tetmesh)
     addTet(tetmesh, v6, a6, a4, a8);
 }
 
-void normalCase(MetricField &field)
-{
-    OVM::Vec3d p = OVM::Vec3d(0.25, 0.87, 1.22);
-    std::cout << "----------------- START Normal Case ------------------" << std::endl;
-    bool failed = false;
-    auto tets = field.locateTetsFast(OVM::VertexHandle(6), toVec3d(p), failed);
-
-
-    auto tetsActual = field.locateTets(toVec3d(p));
-    for (auto ch : tetsActual){
-        std::cout << "tets actual " << ch;
-    }
-    std::cout << std::endl;
-    std::cout << "------------------ END Normal Case -------------------" << std::endl;
-}
-
 void normalTetFinderCase(MetricField &field)
 {
     OVM::Vec3d p = OVM::Vec3d(0.25, 0.87, 1.22);
@@ -284,15 +268,6 @@ void endPointOnFace(MetricField &field)
     auto start_cell = field.startCellFinder(OVM::CellHandle(30), toVec3d(field.get_tetmesh().barycenter(OVM::CellHandle(30))),toVec3d(q));
     auto res = field.tetFinderTobias(start_cell, toVec3d(q), toVec3d(p));
     visualizePath(field, res);
-    std::cout << "-----------------END End on Face ------------------" << std::endl;
-}
-
-void deformedTestCase(MetricField &field){
-    auto p= OVM::Vec3d(0.9, 0.25, 0.5);
-    auto q= OVM::Vec3d(0.9, 0.75, 0.5);
-
-    std::cout << "-----------------START End on Face ------------------" << std::endl;
-    field.tetFinder(toVec3d(q), toVec3d(p));
     std::cout << "-----------------END End on Face ------------------" << std::endl;
 }
 

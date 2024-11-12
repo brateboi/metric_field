@@ -20,27 +20,6 @@ void call_hello_world(){
 
 
 // C++ wrapper for extern C call
-void call_compute_coeff(MetricFieldStruct* _f, const double* _q, const double* _p, double* result){
-    MetricField* f = _f->instance;
-
-    Vec3d q = Vec3d(_q);
-    Vec3d p = Vec3d(_p);
-
-    Vec3d ea;
-    Mat3d rotation = f->computeCoeff(q, p);
-
-    // maybe this should be 2,1,0, not sure
-    ea = rotation.eulerAngles(0,1,2);
-    // ea = rotation.eulerAngles(2,1,0);
-
-    result[0] = ea(0);
-    result[1] = ea(1);
-    result[2] = ea(2);
-
-    return;
-}
-
-// C++ wrapper for extern C call
 void call_compute_coeff_improved(MetricFieldStruct* _f, const int _cell_handle_start, const double* _q, const double* _p, double* result){
     MetricField* f = _f->instance;
 
