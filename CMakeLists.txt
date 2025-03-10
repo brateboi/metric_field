@@ -28,8 +28,8 @@ include(FetchContent)
 set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external")
 
-find_package(OpenVolumeMesh QUIET)
-if (NOT TARGET OpenVolumeMesh)
+find_package(OpenVolumeMesh::OpenVolumeMesh QUIET)
+if (NOT TARGET OpenVolumeMesh::OpenVolumeMesh)
     FetchContent_Declare(ovm
         GIT_REPOSITORY https://www.graphics.rwth-aachen.de:9000/OpenVolumeMesh/OpenVolumeMesh
         GIT_TAG v3.3
