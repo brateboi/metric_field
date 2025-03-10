@@ -39,10 +39,19 @@ if (NOT TARGET OpenVolumeMesh)
     
 endif()
 
-#libnado kd tree
-# find_package(libnado REQUIRED PATHS "/Users/FloriGod/Development/libnabo/build_dir/")
 
+# Gaussian Processes
+include(FetchContent)
+FetchContent_Declare(
+gauss_process
+GIT_REPOSITORY https://github.com/andreacasalino/GaussianProcesses
+GIT_TAG        main
+)
+FetchContent_MakeAvailable(gauss_process)
 
+# CGAL for making bounding and enclosing mesh
+
+find_package(CGAL REQUIRED)
 
 
 # Set warnings
@@ -127,6 +136,10 @@ endif ()
 
 set(EXECUTABLE_FIELD metric_field)
 set(LIB_FIELD metric_field_lib)
+set(INPUT_FIELD input_handler)
+
+add_executable(${INPUT_FIELD}
+        src/input_handler.cpp)
 
 add_executable(${EXECUTABLE_FIELD}
         src/metric_field.cpp
@@ -152,7 +165,13 @@ target_compile_options(${EXECUTABLE_FIELD}
 target_compile_options(${LIB_FIELD}
         PUBLIC ${PROJECT_WARNINGS})
 
+target_compile_options(${INPUT_FIELD}
+        PRIVATE ${PROJECT_WARNINGS})
+
 target_include_directories(${EXECUTABLE_FIELD}
+        PRIVATE include)
+
+target_include_directories(${INPUT_FIELD}
         PRIVATE include)
 
 # for shared lib
@@ -161,12 +180,21 @@ target_include_directories(${LIB_FIELD}
 
 target_link_libraries(${EXECUTABLE_FIELD}
         PRIVATE Eigen3::Eigen
-        PRIVATE OpenVolumeMesh::OpenVolumeMesh)
+        PRIVATE OpenVolumeMesh::OpenVolumeMesh
+        # PRIVATE GaussianProcess
+        PRIVATE CGAL::CGAL)
+
+target_link_libraries(${INPUT_FIELD}
+        PRIVATE Eigen3::Eigen
+        PRIVATE OpenVolumeMesh::OpenVolumeMesh
+        PRIVATE CGAL::CGAL)
 
 # for shared lib
 target_link_libraries(${LIB_FIELD}
         PUBLIC Eigen3::Eigen
-        PUBLIC OpenVolumeMesh::OpenVolumeMesh)
+        PUBLIC OpenVolumeMesh::OpenVolumeMesh
+        # PUBLIC GaussianProcess
+        PUBLIC CGAL::CGAL)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message("Using libc++")
@@ -184,6 +212,15 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_link_libraries(${LIB_FIELD}
             PUBLIC c++
             PUBLIC c++abi)
+endif ()
+
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message("Using libc++")
+    target_compile_options(${INPUT_FIELD}
+            PRIVATE -stdlib=libc++)
+    target_link_libraries(${INPUT_FIELD}
+            PRIVATE c++
+            PRIVATE c++abi)
 endif ()
 
 # ########################################################

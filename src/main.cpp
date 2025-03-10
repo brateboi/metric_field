@@ -55,6 +55,9 @@ int main(int argc, char* argv[])
     endPointOnFace(field);
     tetFinderSameStartEndPoint(field);
     anotherCoolTest(field);
+
+    failingTestWithBoundingBox();
+    
     // saveToFile(tetmesh, "testmesh.ovm");
 
     // throughVertex(tetmesh);

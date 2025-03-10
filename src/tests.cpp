@@ -338,3 +338,21 @@ void showPoint()
     point.add_vertex(OVM::Vec3d(0.25, 0.87, 1.22));
     saveToFile(point, "point.ovm");
 }
+
+
+void failingTestWithBoundingBox(){
+    MetricField field = MetricField("/Users/FloriGod/Development/cube_field/meshes/mesh_with_metric_bounded.ovmb");
+
+    auto q= OVM::Vec3d(0, 0, 1.25);
+    auto p= OVM::Vec3d(-0.9, -1, 0);
+
+
+    
+    std::cout << "-----------------START failingTestWithBoundingBox ------------------" << std::endl;
+    // auto res = field.tetFinder(toVec3d(q), toVec3d(p));
+
+    auto start_cell = field.startCellFinder(OVM::CellHandle(0), toVec3d(field.get_tetmesh().barycenter(OVM::CellHandle(0))),toVec3d(q));
+    auto res = field.tetFinderTobias(start_cell, toVec3d(q), toVec3d(p));
+    visualizePath(field, res);
+    std::cout << "-----------------END failingTestWithBoundingBox ------------------" << std::endl;
+}

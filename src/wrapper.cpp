@@ -71,7 +71,6 @@ void new_normal(MetricFieldStruct* _f, const int _cell_handle, const double* _no
     result[2] = temp(2);
 
     // std::cout << "temp " << temp << std::endl;
-    assert(false);
     return;
 }
 
@@ -111,7 +110,10 @@ int walk_to_point(MetricFieldStruct* _f, const int _cell_handle_start, const dou
     Vec3d start_position = Vec3d(_start_position);
     Vec3d end_position = Vec3d(_end_position);
 
-    return f->startCellFinder(OVM::CellHandle(_cell_handle_start), start_position, end_position).idx();
+    // std::cout << "start position " << start_position << std::endl;
+    // std::cout << "end position " << end_position << std::endl;
+    int res = f->startCellFinder(OVM::CellHandle(_cell_handle_start), start_position, end_position).idx();
+    return res; 
     
 }
 
@@ -124,7 +126,6 @@ int walk_to_point_initial(MetricFieldStruct* _f, const double* _end_position){
 
     // std::cout << "Walking walking walking " << std::endl;
     const int cell_handle = f->startCellFinder(cell_handle_start, start_position, end_position).idx();
-    // std::cout << "titijasdlijasdf" << cell_handle << std::endl;
 
     return cell_handle;
     // return 0;

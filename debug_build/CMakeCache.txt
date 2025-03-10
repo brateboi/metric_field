@@ -14,6 +14,55 @@
 # EXTERNAL cache entries
 ########################
 
+//Build applications that visualizes kernel functions shape
+BUILD_GaussianProcess_KERNEL_VIZ:BOOL=ON
+
+//Build the samples showing how to use the package
+BUILD_GaussianProcess_SAMPLES:BOOL=ON
+
+BUILD_GaussianProcess_TESTS:BOOL=OFF
+
+BUILD_GaussianUtils_TESTS:BOOL=OFF
+
+BUILD_TrainingTools_TESTS:BOOL=OFF
+
+//Activate the debug messages of the script FindBoost
+Boost_DEBUG:BOOL=OFF
+
+//The directory containing a CMake configuration file for Boost.
+Boost_DIR:PATH=/opt/homebrew/lib/cmake/Boost-1.86.0
+
+//Path to a file.
+Boost_INCLUDE_DIR:PATH=/opt/homebrew/include
+
+//Link with static Boost libraries
+CGAL_Boost_USE_STATIC_LIBS:BOOL=OFF
+
+//Setting for advanced users that what to change the default number
+// types used in filtered kernels. Some options might not be working
+// depending on how you configured your build.
+CGAL_CMAKE_EXACT_NT_BACKEND:STRING=Default
+
+//Display memory and real time usage at end of CTest test outputs
+CGAL_CTEST_DISPLAY_MEM_AND_TIME:BOOL=OFF
+
+//Activate the CGAL developers mode. See https://github.com/CGAL/cgal/wiki/CGAL_DEV_MODE
+CGAL_DEV_MODE:BOOL=OFF
+
+//The directory containing a CMake configuration file for CGAL.
+CGAL_DIR:PATH=/opt/homebrew/lib/cmake/CGAL
+
+//Build the testing tree.
+CGAL_ENABLE_TESTING:BOOL=OFF
+
+//If set, the ctest command will not skip the tests of the draw
+// functions.
+CGAL_TEST_DRAW_FUNCTIONS:BOOL=OFF
+
+//Use CGAL with GMPXX: use C++ classes of GNU MP instead of CGAL
+// wrappers
+CGAL_WITH_GMPXX:BOOL=ON
+
 //Path to a program.
 CMAKE_ADDR2LINE:FILEPATH=CMAKE_ADDR2LINE-NOTFOUND
 
@@ -276,6 +325,9 @@ CMAKE_TAPI:FILEPATH=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeD
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
+//Avoid eigen doc
+EIGEN_BUILD_DOC:BOOL=OFF
+
 //The directory containing a CMake configuration file for Eigen3.
 Eigen3_DIR:PATH=/opt/homebrew/share/eigen3/cmake
 
@@ -290,17 +342,131 @@ FETCHCONTENT_FULLY_DISCONNECTED:BOOL=OFF
 FETCHCONTENT_QUIET:BOOL=ON
 
 //When not empty, overrides where to find pre-populated content
+// for gauss_process
+FETCHCONTENT_SOURCE_DIR_GAUSS_PROCESS:PATH=
+
+//When not empty, overrides where to find pre-populated content
+// for guass_utils
+FETCHCONTENT_SOURCE_DIR_GUASS_UTILS:PATH=
+
+//When not empty, overrides where to find pre-populated content
+// for json_lib
+FETCHCONTENT_SOURCE_DIR_JSON_LIB:PATH=
+
+//When not empty, overrides where to find pre-populated content
 // for ovm
 FETCHCONTENT_SOURCE_DIR_OVM:PATH=
+
+//When not empty, overrides where to find pre-populated content
+// for trainers
+FETCHCONTENT_SOURCE_DIR_TRAINERS:PATH=
 
 //Enables UPDATE_DISCONNECTED behavior for all content population
 FETCHCONTENT_UPDATES_DISCONNECTED:BOOL=OFF
 
+//Enables UPDATE_DISCONNECTED behavior just for population of gauss_process
+FETCHCONTENT_UPDATES_DISCONNECTED_GAUSS_PROCESS:BOOL=OFF
+
+//Enables UPDATE_DISCONNECTED behavior just for population of guass_utils
+FETCHCONTENT_UPDATES_DISCONNECTED_GUASS_UTILS:BOOL=OFF
+
+//Enables UPDATE_DISCONNECTED behavior just for population of json_lib
+FETCHCONTENT_UPDATES_DISCONNECTED_JSON_LIB:BOOL=OFF
+
 //Enables UPDATE_DISCONNECTED behavior just for population of ovm
 FETCHCONTENT_UPDATES_DISCONNECTED_OVM:BOOL=OFF
 
+//Enables UPDATE_DISCONNECTED behavior just for population of trainers
+FETCHCONTENT_UPDATES_DISCONNECTED_TRAINERS:BOOL=OFF
+
 //Git command line client
 GIT_EXECUTABLE:FILEPATH=/usr/bin/git
+
+//The directory containing the GMPXX include files
+GMPXX_INCLUDE_DIR:PATH=/opt/homebrew/include
+
+//Path to the GMPXX library
+GMPXX_LIBRARIES:FILEPATH=/opt/homebrew/lib/libgmpxx.dylib
+
+//The directory containing the GMP header files
+GMP_INCLUDE_DIR:PATH=/opt/homebrew/include
+
+//Path to the Debug GMP library
+GMP_LIBRARY_DEBUG:FILEPATH=/opt/homebrew/lib/libgmp.dylib
+
+//Path to the Release GMP library
+GMP_LIBRARY_RELEASE:FILEPATH=/opt/homebrew/lib/libgmp.dylib
+
+//Value Computed by CMake
+Gaussian-Process_BINARY_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/gauss_process-build
+
+//Value Computed by CMake
+Gaussian-Process_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+Gaussian-Process_SOURCE_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/gauss_process-src
+
+//Value Computed by CMake
+GaussianProcess-Samples_BINARY_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/gauss_process-build
+
+//Value Computed by CMake
+GaussianProcess-Samples_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+GaussianProcess-Samples_SOURCE_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/gauss_process-src
+
+//Value Computed by CMake
+GaussianProcessKernel-Visualizations_BINARY_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/gauss_process-build
+
+//Value Computed by CMake
+GaussianProcessKernel-Visualizations_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+GaussianProcessKernel-Visualizations_SOURCE_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/gauss_process-src
+
+//Dependencies for the target
+GaussianProcess_LIB_DEPENDS:STATIC=general;GaussianUtils;general;TrainingTools;
+
+//Value Computed by CMake
+GaussianUtils_BINARY_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/guass_utils-build
+
+//Value Computed by CMake
+GaussianUtils_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+GaussianUtils_SOURCE_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/guass_utils-src
+
+//Build the unit tests when BUILD_TESTING is enabled.
+JSON_BuildTests:BOOL=OFF
+
+//Enable CI build targets.
+JSON_CI:BOOL=OFF
+
+//Use extended diagnostic messages.
+JSON_Diagnostics:BOOL=OFF
+
+//Enable implicit conversions.
+JSON_ImplicitConversions:BOOL=ON
+
+//Install CMake targets during install step.
+JSON_Install:BOOL=OFF
+
+//Use non-amalgamated version of the library.
+JSON_MultipleHeaders:BOOL=OFF
+
+//Include as system headers (skip for clang-tidy).
+JSON_SystemInclude:BOOL=OFF
+
+//Compile shared libraries (ON) or static (OFF)
+LIB_OPT:BOOL=OFF
+
+//The directory containing the MPFR header files
+MPFR_INCLUDE_DIR:PATH=/opt/homebrew/include
+
+//Path to the MPFR library
+MPFR_LIBRARIES:FILEPATH=/opt/homebrew/lib/libmpfr.dylib
+
+MPFR_LIBRARIES_DIR:FILEPATH=/opt/homebrew/lib
 
 //Build OpenVolumeMesh documentation
 OVM_BUILD_DOCUMENTATION:BOOL=FALSE
@@ -330,6 +496,18 @@ OpenVolumeMesh_IS_TOP_LEVEL:STATIC=OFF
 OpenVolumeMesh_SOURCE_DIR:STATIC=/Users/FloriGod/Development/metric_field/external/OpenVolumeMesh
 
 //Value Computed by CMake
+TrainingTools_BINARY_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/trainers-build
+
+//Value Computed by CMake
+TrainingTools_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+TrainingTools_SOURCE_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/trainers-src
+
+//The directory containing a CMake configuration file for boost_headers.
+boost_headers_DIR:PATH=/opt/homebrew/lib/cmake/boost_headers-1.86.0
+
+//Value Computed by CMake
 metric_field_BINARY_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build
 
 //Value Computed by CMake
@@ -338,11 +516,32 @@ metric_field_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 metric_field_SOURCE_DIR:STATIC=/Users/FloriGod/Development/metric_field
 
+//Value Computed by CMake
+nlohmann_json_BINARY_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/json_lib-build
+
+//Value Computed by CMake
+nlohmann_json_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+nlohmann_json_SOURCE_DIR:STATIC=/Users/FloriGod/Development/metric_field/debug_build/_deps/json_lib-src
+
 
 ########################
 # INTERNAL cache entries
 ########################
 
+//ADVANCED property for variable: Boost_DEBUG
+Boost_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_DIR
+Boost_DIR-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: CGAL_Boost_USE_STATIC_LIBS
+CGAL_Boost_USE_STATIC_LIBS-ADVANCED:INTERNAL=1
+//STRINGS property for variable: CGAL_CMAKE_EXACT_NT_BACKEND
+CGAL_CMAKE_EXACT_NT_BACKEND-STRINGS:INTERNAL=GMP_BACKEND;GMPXX_BACKEND;BOOST_GMP_BACKEND;BOOST_BACKEND;LEDA_BACKEND;MP_FLOAT_BACKEND;Default
+//CGAL library is configured to use GMP
+CGAL_USE_GMP:INTERNAL=TRUE
+//CGAL library is configured to use MPFR
+CGAL_USE_MPFR:INTERNAL=TRUE
 //ADVANCED property for variable: CMAKE_ADDR2LINE
 CMAKE_ADDR2LINE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_AR
@@ -415,6 +614,8 @@ CMAKE_GENERATOR_INSTANCE:INTERNAL=
 CMAKE_GENERATOR_PLATFORM:INTERNAL=
 //Name of generator toolset.
 CMAKE_GENERATOR_TOOLSET:INTERNAL=
+//Test CMAKE_HAVE_LIBC_PTHREAD
+CMAKE_HAVE_LIBC_PTHREAD:INTERNAL=1
 //Source directory with the top level CMakeLists.txt file for this
 // project
 CMAKE_HOME_DIRECTORY:INTERNAL=/Users/FloriGod/Development/metric_field
@@ -469,7 +670,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=3
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=12
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP
@@ -522,8 +723,19 @@ COMPILER_HAS_DEPRECATED_ATTR:INTERNAL=1
 COMPILER_HAS_HIDDEN_INLINE_VISIBILITY:INTERNAL=1
 //Test COMPILER_HAS_HIDDEN_VISIBILITY
 COMPILER_HAS_HIDDEN_VISIBILITY:INTERNAL=1
+//Details about finding Boost
+FIND_PACKAGE_MESSAGE_DETAILS_Boost:INTERNAL=[/opt/homebrew/lib/cmake/Boost-1.86.0/BoostConfig.cmake][c ][v1.86.0(1.72)]
+//Details about finding GMP
+FIND_PACKAGE_MESSAGE_DETAILS_GMP:INTERNAL=[/opt/homebrew/lib/libgmp.dylib][/opt/homebrew/include][v()]
+//Details about finding MPFR
+FIND_PACKAGE_MESSAGE_DETAILS_MPFR:INTERNAL=[/opt/homebrew/lib/libmpfr.dylib][/opt/homebrew/include][v()]
+//Details about finding Threads
+FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
 //ADVANCED property for variable: GIT_EXECUTABLE
 GIT_EXECUTABLE-ADVANCED:INTERNAL=1
+NLOHMANN_JSON_CONFIG_INSTALL_DIR:INTERNAL=lib/cmake/nlohmann_json
 //CMAKE_INSTALL_PREFIX during last run
 _GNUInstallDirs_LAST_CMAKE_INSTALL_PREFIX:INTERNAL=/usr/local
+//ADVANCED property for variable: boost_headers_DIR
+boost_headers_DIR-ADVANCED:INTERNAL=1
 
