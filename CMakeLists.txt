@@ -28,14 +28,13 @@ include(FetchContent)
 set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external")
 
-if (NOT TARGET OpenVolumeMesh::OpenVolumeMesh)
-    FetchContent_Declare(ovm
-        GIT_REPOSITORY https://www.graphics.rwth-aachen.de:9000/OpenVolumeMesh/OpenVolumeMesh.git
-        GIT_TAG v3.3
+if(NOT TARGET OpenVolumeMesh::OpenVolumeMesh)
+    FetchContent_Declare(openvolumemesh
+        GIT_REPOSITORY  https://www.graphics.rwth-aachen.de:9000/OpenVolumeMesh/OpenVolumeMesh.git
+        GIT_TAG v3.3.0
         SOURCE_DIR "${EXTERNAL_DIR}/OpenVolumeMesh"
-    )
-    FetchContent_MakeAvailable(ovm)
-    
+        )
+    FetchContent_MakeAvailable(openvolumemesh)
 endif()
 
 

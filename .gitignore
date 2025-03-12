@@ -24,3 +24,5 @@ CMakeUserPresets.json
 *.orig
 .vim
 .cache
+external/
+external/OpenVolumeMesh
