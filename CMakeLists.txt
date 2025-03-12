@@ -190,10 +190,10 @@ target_link_libraries(${INPUT_FIELD}
 
 # for shared lib
 target_link_libraries(${LIB_FIELD}
-        PUBLIC Eigen3::Eigen
-        PUBLIC OpenVolumeMesh::OpenVolumeMesh
+        PRIVATE Eigen3::Eigen
+        PRIVATE OpenVolumeMesh::OpenVolumeMesh
         # PUBLIC GaussianProcess
-        PUBLIC CGAL::CGAL)
+        PRIVATE CGAL::CGAL)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message("Using libc++")
