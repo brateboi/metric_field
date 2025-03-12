@@ -38,15 +38,6 @@ if(NOT TARGET OpenVolumeMesh::OpenVolumeMesh)
 endif()
 
 
-# Gaussian Processes
-include(FetchContent)
-FetchContent_Declare(
-gauss_process
-GIT_REPOSITORY https://github.com/andreacasalino/GaussianProcesses
-GIT_TAG        main
-)
-FetchContent_MakeAvailable(gauss_process)
-
 # CGAL for making bounding and enclosing mesh
 
 find_package(CGAL REQUIRED)
@@ -179,7 +170,6 @@ target_include_directories(${LIB_FIELD}
 target_link_libraries(${EXECUTABLE_FIELD}
         PRIVATE Eigen3::Eigen
         PRIVATE OpenVolumeMesh::OpenVolumeMesh
-        # PRIVATE GaussianProcess
         PRIVATE CGAL::CGAL)
 
 target_link_libraries(${INPUT_FIELD}
@@ -191,7 +181,6 @@ target_link_libraries(${INPUT_FIELD}
 target_link_libraries(${LIB_FIELD}
         PRIVATE Eigen3::Eigen
         PRIVATE OpenVolumeMesh::OpenVolumeMesh
-        # PUBLIC GaussianProcess
         PRIVATE CGAL::CGAL)
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
