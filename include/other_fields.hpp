@@ -15,6 +15,8 @@
 #include <cmath>
 #include <limits>
 
+namespace MetricField {
+
 using Quaternion = Eigen::Quaterniond;
 using Vec3d = Eigen::Matrix<double, 3, 1>;
 using Vec4d = Eigen::Matrix<double, 4, 1>;
@@ -46,5 +48,7 @@ Vec3d deformInverse(Vec3d &p);
 Mat3d computeCoeffConstant(const OVM::CellHandle a, const OVM::CellHandle b, TM &tetmesh);
 OVM::FaceHandle commonFace(const OVM::CellHandle a, const OVM::CellHandle b, TM &tetmesh);
 void calculate_curl_constant_and_W(const OVM::CellHandle a, const OVM::CellHandle b, TM &tetmesh, Mat3d &curl_constant, Mat3d &W_a, Mat3d &W_b);
+
+} // end namespace MetricField
 
 #endif

@@ -17,8 +17,7 @@
 #include <cmath>
 #include <limits>
 
-
-// #include <GaussianProcess/GaussianProcess.h>
+namespace MetricField{
 
 using Quaternion = Eigen::Quaterniond;
 using Vec3d = Eigen::Matrix<double, 3, 1>;
@@ -47,6 +46,7 @@ extern "C" double orient3d(const double *, const double *, const double *,
                            const double *);
 extern "C" double orient2d(const double *, const double *, const double *);
 extern "C" void exactinit();
+
 
 void MetricField::readInTetmesh(const std::string &filename)
 {
@@ -987,5 +987,4 @@ std::vector<OVM::HalfFaceHandle> MetricField::getIncidentHalfFaces(const OVM::Ce
     return res;
 }
 
-
-
+} // end namespace MetricField

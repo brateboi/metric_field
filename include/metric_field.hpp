@@ -11,6 +11,9 @@
 #include <OpenVolumeMesh/Mesh/HexahedralMesh.hh>
 #include <OpenVolumeMesh/Mesh/PolyhedralMesh.hh>
 
+namespace MetricField {
+
+
 using Quaternion = Eigen::Quaterniond;
 using Vec3d = Eigen::Matrix<double, 3, 1>;
 using Vec9d = Eigen::Matrix<double, 9, 1>;
@@ -118,4 +121,6 @@ bool sameSign(double a, double b);
 // visualizing
 void markTetsAsIntersected(TM &tetmesh, std::vector<OVM::CellHandle> tets);
 void showIntersectionPoints(TM &tetmesh, std::vector<std::tuple<OVM::CellHandle, Vec3d, Vec3d>> ints);
+
+}
 #endif

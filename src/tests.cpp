@@ -13,6 +13,7 @@
 #include "other_fields.hpp"
 
 #include <iostream>
+namespace MetricField{
 
 using Quaternion = Eigen::Quaterniond;
 using Vec3d = Eigen::Matrix<double, 3, 1>;
@@ -356,3 +357,4 @@ void failingTestWithBoundingBox(){
     visualizePath(field, res);
     std::cout << "-----------------END failingTestWithBoundingBox ------------------" << std::endl;
 }
+} // end namespace MetricField

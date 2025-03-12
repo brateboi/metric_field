@@ -21,6 +21,10 @@
 #include <OpenVolumeMesh/IO/ovmb_write.hh>
 #include <OpenVolumeMesh/IO/ovmb_read.hh>
 
+namespace MetricField {
+
+
+
 using Quaternion = Eigen::Quaterniond;
 using Vec3d = Eigen::Matrix<double, 3, 1>;
 using Vec4d = Eigen::Matrix<double, 4, 1>;
@@ -343,3 +347,5 @@ OVM::FaceHandle commonFace(const OVM::CellHandle a, const OVM::CellHandle b, TM 
   std::cout << "aswell" << b << std::endl;
   return OVM::FaceHandle(-1);
 }
+
+} // end namespace MetricField

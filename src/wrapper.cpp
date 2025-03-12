@@ -1,6 +1,8 @@
 #include <metric_field.hpp>
 #include "wrapper.h"
 
+namespace MetricField {
+
 // Define the MetricField struct
 struct MetricFieldStruct {
     MetricField* instance;
@@ -131,3 +133,5 @@ int walk_to_point_initial(MetricFieldStruct* _f, const double* _end_position){
     // return 0;
     
 }
+
+} // end namespace MetricField

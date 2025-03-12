@@ -14,6 +14,7 @@
 
 #include <iostream>
 
+
 using Quaternion = Eigen::Quaterniond;
 using Vec3d = Eigen::Matrix<double, 3, 1>;
 using Vec4d = Eigen::Matrix<double, 4, 1>;
@@ -26,7 +27,7 @@ using TM = OVM::TetrahedralGeometryKernel<OVM::Vec3d,
                                           OVM::TetrahedralMeshTopologyKernel>;
 
 
-
+namespace MF = MetricField;
 
 
 int main(int argc, char* argv[])
@@ -37,26 +38,26 @@ int main(int argc, char* argv[])
     // showPoint();
     // robustRayTriangleTest();
     TM tetmesh;
-    populateMesh(tetmesh);
-    MetricField field = MetricField(tetmesh);
-    saveToFile(tetmesh, "testmesh.ovm");
+    MF::populateMesh(tetmesh);
+    MF::MetricField field = MF::MetricField(tetmesh);
+    MF::saveToFile(tetmesh, "testmesh.ovm");
 
-    // normalCase(field);
-    normalTetFinderCase(field);
-    // tetFinderCaseWeird(field);
-    throughVertex(field);
-    throughEdge(field);
-    throughFace(field);
-    startPointOnVertex(field);
-    startPointOnEdge(field);
-    startPointOnFace(field);
-    endPointOnVertex(field);
-    endPointOnEdge(field);
-    endPointOnFace(field);
-    tetFinderSameStartEndPoint(field);
-    anotherCoolTest(field);
+    // MF::normalCase(field);
+    MF::normalTetFinderCase(field);
+    // MF::tetFinderCaseWeird(field);
+    MF::throughVertex(field);
+    MF::throughEdge(field);
+    MF::throughFace(field);
+    MF::startPointOnVertex(field);
+    MF::startPointOnEdge(field);
+    MF::startPointOnFace(field);
+    MF::endPointOnVertex(field);
+    MF::endPointOnEdge(field);
+    MF::endPointOnFace(field);
+    MF::tetFinderSameStartEndPoint(field);
+    MF::anotherCoolTest(field);
 
-    failingTestWithBoundingBox();
+    MF::failingTestWithBoundingBox();
     
     // saveToFile(tetmesh, "testmesh.ovm");
 
@@ -77,9 +78,5 @@ int main(int argc, char* argv[])
     // std::cout << " fdab " << orient3dPaper(f.data(),d.data(),a.data(),b.data()) << std::endl;
 
     // std::cout << " ab " << orient3dPaper(f.data(),d.data(),a.data(),b.data()) << std::endl;
-
-
-    
-
 }
 

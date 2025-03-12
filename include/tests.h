@@ -16,6 +16,10 @@
 #include "other_fields.hpp"
 
 #include <iostream>
+
+namespace MetricField{
+
+
 using Eigen::Matrix;
 using Eigen::Vector3d;
 using Eigen::Vector4d;
@@ -46,4 +50,5 @@ void visualizePath(MetricField &field, std::vector<std::tuple<OVM::CellHandle, V
 
 void failingTestWithBoundingBox();
 
+}
 #endif
