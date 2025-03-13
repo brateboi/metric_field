@@ -1,3 +1,5 @@
+#pragma once
+
 #include <Eigen/Dense>
 
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
@@ -17,6 +19,9 @@
 
 #include <cmath>
 #include <limits>
+
+
+
 #include "OpenVolumeMesh/IO/PropertyCodecsEigen.hh"
 #include <OpenVolumeMesh/IO/ovmb_write.hh>
 #include <OpenVolumeMesh/IO/ovmb_read.hh>
