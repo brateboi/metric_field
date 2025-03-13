@@ -1,3 +1,6 @@
+#ifndef INPUT_HANDLER
+#define INPUT_HANDLER
+
 #include <Eigen/Dense>
 
 #include <OpenVolumeMesh/Geometry/VectorT.hh>
@@ -365,3 +368,6 @@ int main(int argc, char *argv[]) {
 
     return EXIT_SUCCESS;
 }
+
+
+#endif //INPUT_HANDLER
